@@ -1,0 +1,306 @@
+from __future__ import annotations
+
+import logging
+from datetime import datetime, timezone, timedelta
+from typing import Any
+
+import httpx
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import RedirectResponse
+
+from app.core.clients import supabase
+from app.core.config import FRONTEND_URL, FUNCTION_SECRET
+from app.core.deps import require_user
+from app.schemas.mcp import McpCreate
+
+logger = logging.getLogger("kin")
+
+router = APIRouter()
+
+
+@router.get("/api/mcp")
+async def get_mcp_servers(user: dict[str, Any] = Depends(require_user)):
+    try:
+        res = supabase.table("mcp_servers").select("*").eq("user_id", user["id"]).execute()
+        return res.data or []
+    except Exception as e:
+        logger.exception("Failed to query MCP servers")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/api/mcp")
+async def create_mcp_server(request: Request, body: McpCreate, user: dict[str, Any] = Depends(require_user)):
+    import re
+    if not re.match(r"^[a-zA-Z0-9_]+$", body.name):
+        raise HTTPException(
+            status_code=400,
+            detail="MCP server name must contain only alphanumeric characters and underscores."
+        )
+
+    from plugins import mcp_client
+
+    # Try to discover OAuth endpoints
+    discovered = await mcp_client.discover_mcp_oauth(body.url, body.headers)
+    is_oauth = False
+    auth_url = body.oauth_auth_url
+    token_url = body.oauth_token_url
+    client_id = body.oauth_client_id
+    client_secret = body.oauth_client_secret
+
+    if discovered:
+        is_oauth = True
+        auth_url = auth_url or discovered.get("authorization_endpoint")
+        token_url = token_url or discovered.get("token_endpoint")
+
+        # If DCR registration endpoint is exposed, perform Dynamic Client Registration
+        reg_endpoint = discovered.get("registration_endpoint")
+        if reg_endpoint and not client_id:
+            scheme = request.headers.get("x-forwarded-proto", request.url.scheme)
+            redirect_uri = f"{scheme}://{request.url.netloc}/auth/mcp/callback"
+            try:
+                registered = await mcp_client.register_mcp_oauth_client(reg_endpoint, redirect_uri)
+                if registered:
+                    client_id = registered.get("client_id")
+                    client_secret = registered.get("client_secret")
+                    logger.info(f"Dynamically registered MCP OAuth client: {client_id} for redirect: {redirect_uri}")
+            except Exception:
+                logger.exception("Dynamic Client Registration failed")
+
+        if not client_id:
+            raise HTTPException(
+                status_code=400,
+                detail="This MCP server requires OAuth but does not support Dynamic Client Registration. "
+                       "Please click 'Show Advanced OAuth Options' and configure your Client ID manually."
+            )
+    elif body.oauth_client_id or body.oauth_auth_url:
+        is_oauth = True
+
+    tools = []
+    flow_status = "none"
+
+    if is_oauth:
+        flow_status = "awaiting_authorization"
+    else:
+        try:
+            tools = await mcp_client.list_remote_tools(body.url, body.headers)
+        except Exception as e:
+            logger.exception("Failed to contact remote MCP server")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Failed to connect to MCP server: {e}"
+            )
+
+    try:
+        data = {
+            "user_id": user["id"],
+            "name": body.name,
+            "url": body.url,
+            "headers": body.headers or {},
+            "tools": tools,
+            "oauth_flow_status": flow_status,
+            "oauth_client_id": client_id,
+            "oauth_client_secret": client_secret,
+            "oauth_auth_url": auth_url,
+            "oauth_token_url": token_url,
+            "oauth_scopes": body.oauth_scopes,
+            "updated_at": datetime.utcnow().isoformat()
+        }
+        res = supabase.table("mcp_servers").upsert(data, on_conflict="user_id,name").execute()
+        if res.data:
+            return res.data[0]
+        raise HTTPException(status_code=500, detail="Failed to save MCP server")
+    except Exception as e:
+        logger.exception("Failed to save MCP server")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/api/mcp/{mcp_id}/test")
+async def test_mcp_connection(mcp_id: str, user: dict[str, Any] = Depends(require_user)):
+    try:
+        res = supabase.table("mcp_servers").select("*").eq("id", mcp_id).eq("user_id", user["id"]).execute()
+        server = res.data[0] if res.data else None
+        if not server:
+            raise HTTPException(status_code=404, detail="MCP server not found")
+
+        from plugins import mcp_client
+
+        # Check OAuth status
+        if server.get("oauth_flow_status") == "awaiting_authorization":
+            raise HTTPException(
+                status_code=400,
+                detail="MCP server is awaiting authorization. Please authorize the server first."
+            )
+
+        headers = await mcp_client.get_mcp_headers(server)
+        tools = await mcp_client.list_remote_tools(server["url"], headers)
+
+        # Cache tools
+        supabase.table("mcp_servers").update({
+            "tools": tools,
+            "updated_at": datetime.utcnow().isoformat()
+        }).eq("id", mcp_id).execute()
+
+        return {"status": "success", "tools": tools}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("MCP server test failed")
+        raise HTTPException(status_code=400, detail=f"Connection test failed: {e}")
+
+
+@router.post("/api/mcp/{mcp_id}/oauth/start")
+async def mcp_oauth_start(mcp_id: str, redirect_uri: str, user: dict[str, Any] = Depends(require_user)):
+    res = supabase.table("mcp_servers").select("*").eq("id", mcp_id).eq("user_id", user["id"]).execute()
+    server = res.data[0] if res.data else None
+    if not server:
+        raise HTTPException(status_code=404, detail="MCP server not found")
+
+    auth_url = server.get("oauth_auth_url")
+    client_id = server.get("oauth_client_id")
+    if not auth_url or not client_id:
+        raise HTTPException(
+            status_code=400,
+            detail="MCP server is not configured for OAuth (missing Authorization URL or Client ID)."
+        )
+
+    import secrets
+    import hashlib
+    import base64
+
+    # Generate PKCE verifier and challenge
+    verifier = secrets.token_urlsafe(64)
+    challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).decode().replace("=", "").replace("+", "-").replace("/", "_")
+
+    # Save the verifier in the DB
+    supabase.table("mcp_servers").update({
+        "oauth_code_verifier": verifier
+    }).eq("id", mcp_id).execute()
+
+    # Generate the state JWT containing user_id and mcp_id
+    import time
+    import jwt
+    state_payload = {
+        "sub": user["id"],
+        "mcp_id": mcp_id,
+        "exp": int(time.time()) + 900
+    }
+    state = jwt.encode(state_payload, FUNCTION_SECRET, algorithm="HS256")
+
+    scopes = server.get("oauth_scopes") or ""
+    import urllib.parse
+    params = {
+        "response_type": "code",
+        "client_id": client_id,
+        "redirect_uri": redirect_uri,
+        "state": state,
+        "code_challenge": challenge,
+        "code_challenge_method": "S256"
+    }
+    if scopes:
+        params["scope"] = scopes
+
+    auth_redirect_url = f"{auth_url}?{urllib.parse.urlencode(params)}"
+    return {"url": auth_redirect_url}
+
+
+@router.get("/auth/mcp/callback")
+async def mcp_oauth_callback(request: Request, code: str, state: str):
+    import jwt
+    import time
+    import json
+    from datetime import datetime, timezone, timedelta
+
+    try:
+        payload = jwt.decode(state, FUNCTION_SECRET, algorithms=["HS256"])
+        user_id = payload["sub"]
+        mcp_id = payload["mcp_id"]
+    except jwt.PyJWTError:
+        return RedirectResponse(f"{FRONTEND_URL}/dashboard/mcp?oauth=error&detail=invalid_state")
+
+    try:
+        res = supabase.table("mcp_servers").select("*").eq("id", mcp_id).eq("user_id", user_id).execute()
+        server = res.data[0] if res.data else None
+        if not server:
+            return RedirectResponse(f"{FRONTEND_URL}/dashboard/mcp?oauth=error&detail=server_not_found")
+
+        token_url = server.get("oauth_token_url")
+        client_id = server.get("oauth_client_id")
+        verifier = server.get("oauth_code_verifier")
+
+        # Build redirect_uri dynamically based on the request's origin host
+        scheme = request.headers.get("x-forwarded-proto", request.url.scheme)
+        redirect_uri = f"{scheme}://{request.url.netloc}/auth/mcp/callback"
+
+        payload = {
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": redirect_uri,
+            "client_id": client_id,
+            "code_verifier": verifier
+        }
+        client_secret = server.get("oauth_client_secret")
+        if client_secret:
+            payload["client_secret"] = client_secret
+
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            token_res = await client.post(token_url, data=payload)
+            if token_res.status_code != 200:
+                logger.error(
+                    "MCP OAuth token exchange failed: Status %d, Body %s",
+                    token_res.status_code, token_res.text
+                )
+                return RedirectResponse(
+                    f"{FRONTEND_URL}/dashboard/mcp?oauth=error&detail=token_exchange_failed"
+                )
+
+            tokens = token_res.json()
+            access = tokens["access_token"]
+            refresh = tokens.get("refresh_token")
+            expires_in = int(tokens.get("expires_in", 3600))
+
+            # Save token to database
+            update_data = {
+                "oauth_access_token": access,
+                "oauth_refresh_token": refresh,
+                "oauth_token_expires_at": (
+                    datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+                ).isoformat(),
+                "oauth_flow_status": "authorized"
+            }
+            supabase.table("mcp_servers").update(update_data).eq("id", mcp_id).execute()
+
+            # Connect to MCP server using newly obtained access token and retrieve its tools list
+            from plugins import mcp_client
+            headers = {"Authorization": f"Bearer {access}"}
+            custom_headers = server.get("headers") or {}
+            if isinstance(custom_headers, str):
+                try:
+                    custom_headers = json.loads(custom_headers)
+                except Exception:
+                    custom_headers = {}
+            headers.update(custom_headers)
+
+            try:
+                tools = await mcp_client.list_remote_tools(server["url"], headers)
+                supabase.table("mcp_servers").update({
+                    "tools": tools,
+                    "updated_at": datetime.utcnow().isoformat()
+                }).eq("id", mcp_id).execute()
+            except Exception:
+                logger.exception("Failed to fetch tools after successful OAuth for MCP server %s", mcp_id)
+
+            return RedirectResponse(f"{FRONTEND_URL}/dashboard/mcp?mcp_id={mcp_id}&oauth=success")
+
+    except Exception as e:
+        logger.exception("MCP OAuth callback failed")
+        return RedirectResponse(f"{FRONTEND_URL}/dashboard/mcp?oauth=error&detail={e}")
+
+
+@router.delete("/api/mcp/{mcp_id}")
+async def delete_mcp_server(mcp_id: str, user: dict[str, Any] = Depends(require_user)):
+    try:
+        supabase.table("mcp_servers").delete().eq("id", mcp_id).eq("user_id", user["id"]).execute()
+        return {"status": "deleted"}
+    except Exception as e:
+        logger.exception("Failed to delete MCP server")
+        raise HTTPException(status_code=500, detail=str(e))

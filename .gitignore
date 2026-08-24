@@ -1,0 +1,50 @@
+# Environment
+.env
+.env.local
+.env.*.local
+
+# env.yaml files ARE tracked (backend/, voice-worker/) — they document the
+# shape of the deployment config and must only ever contain empty/placeholder
+# values (see README/CONTRIBUTING). Never put real secrets back into them.
+# The actual deployed values live only in these local backups, which must
+# never be committed:
+env.yaml.local-backup
+apphosting.yaml.local-backup
+
+# Node
+node_modules/
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+frontend/.next/
+frontend/out/
+frontend/coverage
+frontend/.vercel
+frontend/*.tsbuildinfo
+frontend/next-env.d.ts
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Supabase
+backend/supabase/.temp/
+
+# IDEs and scratch
+.vscode/
+scratch/
+*.code-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+*.pem

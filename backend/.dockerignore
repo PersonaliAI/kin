@@ -1,0 +1,14 @@
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.db
+.sqlite3
+.env
+env.yaml.local-backup
+.git
+.gitignore
+supabase/
+node_modules/
+tests/
+.pre_refactor_routes.txt

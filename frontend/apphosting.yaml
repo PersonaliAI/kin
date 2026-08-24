@@ -1,0 +1,92 @@
+# Firebase App Hosting config — runtime/build env for the Next.js app.
+# Secrets should ideally come from Google Secret Manager; for public anon keys
+# and URLs, plaintext is fine.
+runConfig:
+  minInstances: 0
+  maxInstances: 5
+  concurrency: 80
+  cpu: 1
+  memoryMiB: 512
+
+env:
+  - variable: NEXT_PUBLIC_SUPABASE_URL
+    value: ""  # set in your deployment env, do not commit real value
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: NEXT_PUBLIC_SUPABASE_ANON_KEY
+    value: ""  # set in your deployment env, do not commit real value
+    availability:
+      - BUILD
+      - RUNTIME
+
+  # Must point at your deployed kin-backend instance.
+  - variable: NEXT_PUBLIC_BACKEND_URL
+    value: ""  # set in your deployment env, do not commit real value
+    availability:
+      - BUILD
+      - RUNTIME
+
+  # Public origin of THIS app. Used for absolute URLs sent to third parties
+  # (e.g. Lemon Squeezy checkout redirect_url). Unset locally → code falls back
+  # to the request origin, so dev checkouts round-trip to localhost.
+  - variable: NEXT_PUBLIC_SITE_URL
+    value: "https://kin.personaliai.com"
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: NEXT_PUBLIC_LEMON_PORTAL_URL
+    value: ""  # set in your deployment env, do not commit real value
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: LEMONSQUEEZY_API_KEY
+    value: ""  # set in your deployment env, do not commit real value
+    availability:
+      - RUNTIME
+
+  # Firebase Analytics (GA4) — optional, used only for analytics.
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: ""  # set in your deployment env, do not commit real value
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: ""  # set in your deployment env, do not commit real value
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: ""  # set in your deployment env, do not commit real value
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: ""  # set in your deployment env, do not commit real value
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: ""  # set in your deployment env, do not commit real value
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: ""  # set in your deployment env, do not commit real value
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+    value: ""  # set in your deployment env, do not commit real value
+    availability:
+      - BUILD
+      - RUNTIME

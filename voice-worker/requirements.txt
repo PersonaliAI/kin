@@ -1,0 +1,15 @@
+livekit-agents>=1.0
+livekit-plugins-openai
+livekit-plugins-anthropic
+livekit-plugins-google
+livekit-plugins-groq
+livekit-plugins-xai
+livekit-plugins-deepgram
+livekit-plugins-azure
+livekit-plugins-assemblyai
+livekit-plugins-elevenlabs
+livekit-plugins-cartesia
+livekit-plugins-rime
+livekit-plugins-lmnt
+httpx
+python-dotenv

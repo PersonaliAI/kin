@@ -1,0 +1,1562 @@
+{
+  "common": {
+    "appName": "Kin"
+  },
+  "metadata": {
+    "title": "Kin — Assistant personnel IA dans Telegram",
+    "description": "Kin est un assistant personnel IA qui vit dans Telegram et sur le web. Il lit vos e-mails, gère votre calendrier, classe vos tâches et se souvient de tout — grâce à une conversation naturelle.",
+    "ogDescription": "L'assistant qui fait réellement les choses. E-mail, calendrier, tâches et mémoire — gérés depuis un chat Telegram ou le web."
+  },
+  "landing": {
+    "nav": {
+      "capabilities": "Fonctionnalités",
+      "pricing": "Tarifs",
+      "faq": "FAQ",
+      "personaliai": "PersonaliAI",
+      "login": "Se connecter",
+      "startFree": "Commencer gratuitement"
+    },
+    "hero": {
+      "badge": "Parlez-lui comme à une personne, pas comme à une boîte de dialogue",
+      "titleLine1": "L'assistant qui",
+      "titleHighlight": "agit",
+      "description": "Kin lit vos e-mails, vérifie votre calendrier, classe vos tâches et se souvient de tout — directement depuis un chat Telegram ou le web. Aucune application à apprendre, aucun tableau de bord à surveiller.",
+      "ctaPrimary": "Commencer gratuitement",
+      "ctaSecondary": "Voir ce qu'il peut faire",
+      "tagline": "Niveau gratuit à vie · Pas de carte de crédit · Vit sur Telegram + web"
+    },
+    "demo": {
+      "calendar": {
+        "user": "Qu'y a-t-il à mon calendrier cet après-midi ?",
+        "reply1": "Vous avez deux choses après le déjeuner :",
+        "cardTitle": "14h00 — Réunion de conception",
+        "cardSub": "avec Priya · Google Meet",
+        "reply2": "Voulez-vous que je déplace la synchronisation de 16h30 à demain ? Vous avez des rendez-vous consécutifs."
+      },
+      "email": {
+        "user": "Rédigez une réponse à Marcus concernant la facture",
+        "reply1": "Fait — envoyé depuis votre Gmail :",
+        "cardTitle": "Objet : Facture #4471",
+        "cardSub": "\"Bonjour Marcus, je confirme que le paiement a été effectué aujourd'hui...\"",
+        "reply2": "Je l'ai également marqué comme payé dans votre suivi."
+      },
+      "task": {
+        "user": "Rappelez-moi d'appeler le dentiste demain matin",
+        "reply1": "Ajouté à vos tâches :",
+        "cardTitle": "Appeler le dentiste",
+        "cardSub": "Demain · Rappel à 9h00",
+        "reply2": "Je vous enverrai un message sur Telegram quand ce sera le moment."
+      }
+    },
+    "capabilities": {
+      "eyebrow": "Ce que Kin gère",
+      "heading": "Six choses que vous demanderiez à une personne. Maintenant, vous les demandez à Kin.",
+      "items": {
+        "email": {
+          "title": "E-mail qui se lit tout seul",
+          "desc": "Kin scanne Gmail + Outlook, met en évidence ce qui est important et rédige des réponses avec votre voix."
+        },
+        "calendar": {
+          "title": "Un calendrier qui répond",
+          "desc": "\"Suis-je libre jeudi ?\" obtient une vraie réponse — et Kin réorganisera les choses pour vous."
+        },
+        "tasks": {
+          "title": "Tâches, sans l'application",
+          "desc": "Google Tasks, Microsoft To Do et la propre liste de Kin — une seule conversation, entièrement synchronisée."
+        },
+        "contacts": {
+          "title": "Recherche de contact instantanée",
+          "desc": "Demandez un numéro ou une note et Kin le récupère instantanément de vos contacts Google ou Outlook."
+        },
+        "voice": {
+          "title": "Voix ou texte — à vous de choisir",
+          "desc": "Envoyez une note vocale ou tapez-la. Kin comprend les deux, sans délai de transcription."
+        },
+        "memory": {
+          "title": "Une mémoire qui retient",
+          "desc": "Indexez votre Drive, OneDrive et vos PDF. Kin se souvient du contexte à travers chaque conversation."
+        }
+      }
+    },
+    "howItWorks": {
+      "eyebrow": "Comment ça marche",
+      "heading": "Aussi simple que d'envoyer un SMS à un ami.",
+      "steps": {
+        "send": {
+          "title": "Envoyer un message",
+          "desc": "Ouvrez Telegram ou l'application web. Envoyez un message texte ou vocal à Kin, comme à un ami."
+        },
+        "figures": {
+          "title": "Kin comprend",
+          "desc": "Il lit votre intention et décide quels outils connectés il doit utiliser."
+        },
+        "parallel": {
+          "title": "Les outils fonctionnent en parallèle",
+          "desc": "Gmail, Calendrier, Tâches, Drive — interrogés simultanément pour que vous n'attendiez pas."
+        },
+        "answer": {
+          "title": "Vous obtenez une réponse",
+          "desc": "Une réponse claire et directe apparaît dans le chat. Pas de tableaux de bord, pas de clics à travers les onglets."
+        }
+      }
+    },
+    "pricing": {
+      "eyebrow": "Tarifs",
+      "heading": "Payez en fonction de votre utilisation de Kin.",
+      "subheading": "Commencez gratuitement. Passez à un niveau supérieur dès qu'il vous est indispensable.",
+      "footnote": "Pas de carte de crédit requise pour le plan Gratuit. Les quotas de jetons sont réinitialisés mensuellement.",
+      "mostPopular": "Le plus populaire",
+      "plans": {
+        "free": {
+          "name": "Gratuit",
+          "desc": "Essayez Kin et voyez s'il s'intègre à votre quotidien.",
+          "cta": "Commencer",
+          "features": [
+            "1M jetons / mois",
+            "Lecture Gmail + Calendrier",
+            "Tâches et Contacts",
+            "Mémoire à long terme",
+            "Bot Telegram"
+          ]
+        },
+        "basic": {
+          "name": "Basique",
+          "desc": "Pour une utilisation quotidienne légère.",
+          "cta": "Mettre à niveau maintenant",
+          "features": [
+            "3M jetons / mois",
+            "Tout ce qui est inclus dans le plan Gratuit",
+            "Briefing matinal quotidien",
+            "Messages vocaux"
+          ]
+        },
+        "pro": {
+          "name": "Pro",
+          "desc": "Pour les utilisateurs quotidiens intensifs.",
+          "cta": "Mettre à niveau maintenant",
+          "features": [
+            "10M jetons / mois",
+            "Tout ce qui est inclus dans le plan Basique",
+            "Invite système personnalisée",
+            "Traitement prioritaire"
+          ]
+        },
+        "executive": {
+          "name": "Exécutif",
+          "desc": "Pour les utilisateurs avancés.",
+          "cta": "Mettre à niveau maintenant",
+          "features": [
+            "30M jetons / mois",
+            "Tout ce qui est inclus dans le plan Pro",
+            "Traitement à la plus haute priorité",
+            "Support dédié"
+          ]
+        }
+      }
+    },
+    "faq": {
+      "eyebrow": "FAQ",
+      "heading": "Questions, réponses.",
+      "items": [
+        {
+          "q": "Dois-je installer quelque chose ?",
+          "a": "Non. Kin est disponible sur Telegram (recherchez @KinByPersonaliAI_bot ou utilisez le lien après l'inscription) et sur le tableau de bord web. Pas de magasin d'applications, pas d'extension."
+        },
+        {
+          "q": "Mes données d'e-mail/calendrier sont-elles sécurisées ?",
+          "a": "Kin utilise OAuth2 sécurisé pour Google et Microsoft — nous ne voyons ni ne stockons jamais votre mot de passe, et vous pouvez révoquer l'accès à tout moment depuis les Paramètres."
+        },
+        {
+          "q": "Que se passe-t-il lorsque j'atteins ma limite mensuelle ?",
+          "a": "Vous recevrez une notification dans le chat avec un lien de mise à niveau en un clic. Rien n'est interrompu en pleine conversation."
+        },
+        {
+          "q": "Puis-je annuler à tout moment ?",
+          "a": "Oui — les plans sont mensuels sans engagement. Annulez depuis la page de facturation en un clic."
+        }
+      ]
+    },
+    "cta": {
+      "heading": "Votre journée, moins les tâches fastidieuses.",
+      "description": "Commencez gratuitement aujourd'hui. Pas de carte de crédit, pas d'appel de configuration — envoyez simplement un message à Kin.",
+      "button": "Commencer gratuitement"
+    },
+    "footer": {
+      "tagline": "Kin par PersonaliAI",
+      "personaliai": "PersonaliAI",
+      "privacy": "Confidentialité",
+      "terms": "Conditions"
+    }
+  },
+  "auth": {
+    "titles": {
+      "login": "Se connecter",
+      "signup": "S'inscrire",
+      "forgotPassword": "Mot de passe oublié",
+      "resetPassword": "Réinitialiser le mot de passe",
+      "checkout": "Paiement",
+      "success": "Succès",
+      "onboarding": "Intégration"
+    },
+    "shell": {
+      "termsPrefix": "En continuant, vous acceptez les",
+      "termsLink": "Conditions d'utilisation",
+      "and": "et",
+      "privacyLink": "Politique de confidentialité"
+    },
+    "login": {
+      "title": "Bienvenue",
+      "subtitle": "Connectez-vous pour gérer votre assistant Kin",
+      "emailLabel": "Adresse e-mail",
+      "passwordLabel": "Mot de passe",
+      "forgotPassword": "Mot de passe oublié ?",
+      "signIn": "Se connecter",
+      "or": "Ou",
+      "continueGoogle": "Continuer avec Google",
+      "continueMicrosoft": "Continuer avec Microsoft",
+      "noAccount": "Vous n'avez pas de compte ?",
+      "createOne": "En créer un",
+      "errors": {
+        "invalidCredentials": "Adresse e-mail ou mot de passe incorrect. Réessayez ou réinitialisez votre mot de passe.",
+        "emailNotConfirmed": "Veuillez d'abord vérifier votre e-mail — consultez votre boîte de réception pour le lien de confirmation.",
+        "rateLimit": "Trop de tentatives. Attendez une minute, puis réessayez."
+      }
+    },
+    "signup": {
+      "title": "Créez votre compte",
+      "subtitle": "Commencez à utiliser Kin en moins d'une minute",
+      "emailLabel": "Adresse e-mail",
+      "passwordLabel": "Mot de passe",
+      "passwordPlaceholder": "Au moins 8 caractères",
+      "createAccount": "Créer un compte",
+      "or": "Ou",
+      "continueGoogle": "Continuer avec Google",
+      "continueMicrosoft": "Continuer avec Microsoft",
+      "haveAccount": "Vous avez déjà un compte ?",
+      "signIn": "Se connecter",
+      "almostThere": "Presque terminé",
+      "confirmEmailSubtitle": "Confirmez votre e-mail pour continuer",
+      "checkYourEmail": "Vérifiez votre e-mail",
+      "confirmationSentPrefix": "Nous avons envoyé un lien de confirmation à",
+      "clickToVerify": "Cliquez dessus pour vérifier votre adresse, puis connectez-vous.",
+      "backToSignIn": "Retour à la connexion",
+      "errors": {
+        "alreadyRegistered": "Un compte avec cette adresse e-mail existe déjà. Essayez de vous connecter à la place.",
+        "passwordTooShort": "Le mot de passe doit contenir au moins 8 caractères.",
+        "rateLimit": "Trop d'inscriptions depuis cette adresse IP. Attendez une minute, puis réessayez."
+      }
+    },
+    "forgotPassword": {
+      "title": "Mot de passe oublié ?",
+      "subtitle": "Nous vous enverrons un lien de réinitialisation par e-mail",
+      "emailLabel": "Adresse e-mail",
+      "sendLink": "Envoyer le lien de réinitialisation",
+      "rememberedIt": "Vous vous en êtes souvenu ?",
+      "backToSignIn": "Retour à la connexion",
+      "checkEmailTitle": "Vérifiez votre e-mail",
+      "checkEmailSubtitle": "Lien de réinitialisation du mot de passe envoyé",
+      "resetSentPrefix": "Si un compte existe pour",
+      "resetSentSuffix": "nous avons envoyé un lien de réinitialisation du mot de passe.",
+      "clickToSetNew": "Cliquez dessus pour définir un nouveau mot de passe."
+    },
+    "resetPassword": {
+      "title": "Définir un nouveau mot de passe",
+      "subtitle": "Choisissez quelque chose de fort",
+      "newPassword": "Nouveau mot de passe",
+      "confirmPassword": "Confirmer le mot de passe",
+      "passwordPlaceholder": "Au moins 8 caractères",
+      "updatePassword": "Mettre à jour le mot de passe",
+      "errors": {
+        "passwordTooShort": "Le mot de passe doit contenir au moins 8 caractères.",
+        "passwordMismatch": "Les mots de passe ne correspondent pas."
+      },
+      "doneTitle": "Mot de passe mis à jour",
+      "doneSubtitle": "Tout est prêt",
+      "doneMessage": "Votre mot de passe a été modifié.",
+      "openDashboard": "Ouvrir votre tableau de bord →"
+    },
+    "onboarding": {
+      "steps": {
+        "profile": "Profil",
+        "location": "Localisation",
+        "terms": "Conditions"
+      },
+      "step1": {
+        "eyebrow": "Étape 1",
+        "title": "Faisons connaissance",
+        "sub": "Comment Kin doit-il vous appeler ?",
+        "displayNameLabel": "Nom d'affichage",
+        "displayNamePlaceholder": "ex. Alex Rivera",
+        "displayNameHint": "Kin utilisera ce nom dans les salutations et les briefings matinaux."
+      },
+      "step2": {
+        "eyebrow": "Étape 2",
+        "title": "Où dans le monde ?",
+        "sub": "Pour que Kin sache ce que 'aujourd'hui' et 'demain' signifient pour vous.",
+        "timezoneLabel": "Fuseau horaire",
+        "timezonePlaceholder": "Choisissez un fuseau horaire",
+        "timezoneHint": "Nous l'avons pré-rempli à partir de votre navigateur.",
+        "countryLabel": "Pays",
+        "countryPlaceholder": "Choisissez votre pays"
+      },
+      "step3": {
+        "eyebrow": "Dernière étape",
+        "title": "Une dernière chose",
+        "sub": "Lisez et acceptez nos conditions pour commencer à utiliser Kin.",
+        "dataRulesTitle": "Vos données, vos règles.",
+        "dataRulesBody": "Kin ne lit que les données que vous connectez (Gmail, Agenda, Tâches, Contacts). Rien n'est vendu ou partagé avec les annonceurs.",
+        "securityTitle": "Sécurité.",
+        "securityBody": "Les jetons OAuth sont chiffrés au repos. Nous utilisons la sécurité au niveau des lignes sur toutes les tables afin que vos données soient isolées.",
+        "aiTitle": "Traitement par IA.",
+        "aiBodyPrefix": "Vos messages sont envoyés à l'API Gemini de Google pour générer des réponses. Ils ne sont pas utilisés pour entraîner le modèle. Tous les détails dans notre",
+        "privacyLink": "Politique de confidentialité",
+        "leaveTitle": "Votre droit de partir.",
+        "leaveBody": "Vous pouvez déconnecter les intégrations ou supprimer votre compte à tout moment depuis les paramètres.",
+        "agreePrefix": "J'accepte les",
+        "termsLink": "Conditions d'utilisation",
+        "and": "et",
+        "marketingOptIn": "Envoyez-moi des mises à jour de produits et des conseils occasionnels. Vous pouvez vous désabonner à tout moment."
+      },
+      "back": "Retour",
+      "continueBtn": "Continuer",
+      "finishSetup": "Terminer la configuration",
+      "sessionExpired": "Session expirée. Veuillez vous reconnecter."
+    },
+    "authCodeError": {
+      "title": "Échec de l'authentification",
+      "message": "Le code de connexion était invalide ou a expiré. Cela se produit généralement si vous attendez trop longtemps pour vous connecter ou si vos variables d'environnement ne correspondent pas.",
+      "tryAgain": "Réessayer",
+      "backHome": "Retour à l'accueil"
+    },
+    "checkout": {
+      "unknownPlan": "Plan inconnu.",
+      "genericError": "Impossible de démarrer le paiement. Veuillez réessayer.",
+      "goToBilling": "Aller à la facturation",
+      "redirecting": "Redirection vers le paiement…"
+    },
+    "success": {
+      "title": "Connexion réussie",
+      "message": "Votre lien neural est actif. Vous pouvez maintenant fermer cette fenêtre et continuer votre conversation avec Kin sur Telegram.",
+      "openDashboard": "Ouvrir votre tableau de bord",
+      "openTelegram": "Ouvrir Kin sur Telegram",
+      "statusBadge": "Lien Neural Chiffré & Actif"
+    }
+  },
+  "dashboard": {
+    "common": {
+      "close": "Fermer"
+    },
+    "shell": {
+      "sections": {
+        "workspace": "Espace de travail",
+        "data": "Données",
+        "account": "Compte"
+      },
+      "nav": {
+        "overview": "Aperçu",
+        "chat": "Chat",
+        "activity": "Activité",
+        "memory": "Mémoire",
+        "tasks": "Tâches",
+        "contacts": "Contacts",
+        "calendar": "Calendrier",
+        "inbox": "Boîte de réception",
+        "documents": "Documents",
+        "integrations": "Intégrations",
+        "mcp": "Serveurs MCP",
+        "voiceAgents": "Agents vocaux",
+        "schedule": "Planifications",
+        "developer": "Développeur",
+        "settings": "Paramètres",
+        "billing": "Facturation",
+        "social": "Social Copilot"
+      },
+      "titles": {
+        "overview": {
+          "title": "Aperçu",
+          "description": "Voici ce que Kin a fait."
+        },
+        "chat": {
+          "title": "Discuter avec Kin",
+          "description": "Texte ou voix — votre conversation est sauvegardée entre les sessions."
+        },
+        "activity": {
+          "title": "Activité",
+          "description": "Chaque action que Kin a gérée — sur toutes les interfaces."
+        },
+        "memory": {
+          "title": "Mémoire",
+          "description": "Faits que Kin retient de vous à travers les conversations."
+        },
+        "documents": {
+          "title": "Documents",
+          "description": "Indexez les fichiers Drive pour que Kin puisse y puiser ses réponses."
+        },
+        "tasks": {
+          "title": "Tâches",
+          "description": "Choses que Kin suit pour vous."
+        },
+        "contacts": {
+          "title": "Contacts",
+          "description": "Personnes que Kin peut rechercher pour vous."
+        },
+        "calendar": {
+          "title": "Calendrier",
+          "description": "Vue en lecture seule de votre Google Agenda."
+        },
+        "inbox": {
+          "title": "Boîte de réception",
+          "description": "Emails récents que Kin peut résumer."
+        },
+        "integrations": {
+          "title": "Intégrations",
+          "description": "Connectez les services que Kin peut lire et sur lesquels il peut vous joindre."
+        },
+        "mcp": {
+          "title": "Serveurs MCP",
+          "description": "Connectez des serveurs distants Model Context Protocol (MCP) pour étendre les capacités de Kin."
+        },
+        "voiceAgents": {
+          "title": "Agents vocaux",
+          "description": "Agents téléphoniques IA pour les appels commerciaux et l'accueil."
+        },
+        "schedule": {
+          "title": "Tâches planifiées",
+          "description": "Automatisez les invites d'agent personnalisées selon un calendrier cron récurrent."
+        },
+        "developer": {
+          "title": "Développeur",
+          "description": "Clés API et webhooks pour développer sur Kin."
+        },
+        "settings": {
+          "title": "Paramètres",
+          "description": "Ajustez le comportement de Kin et le moment où il vous contacte."
+        },
+        "billing": {
+          "title": "Facturation",
+          "description": "Votre abonnement et les détails de votre forfait."
+        },
+        "default": {
+          "title": "Tableau de bord",
+          "description": ""
+        },
+        "social": {
+          "title": "Social Copilot",
+          "description": "Schedule, publish and analyze posts with AI."
+        }
+      },
+      "greeting": "Salut, {name}",
+      "openMenu": "Ouvrir le menu",
+      "closeMenu": "Fermer le menu",
+      "openTelegramBot": "Ouvrir le bot Telegram ↗",
+      "language": "Langue",
+      "theme": "Thème",
+      "signOut": "Se déconnecter",
+      "kinOnline": "Kin est en ligne"
+    },
+    "notConnected": {
+      "title": "Connectez Google pour voir votre {what}",
+      "body": "Kin a besoin d'un accès en lecture à votre compte Google avant de pouvoir récupérer quoi que ce soit de l'Agenda ou de Gmail.",
+      "cta": "Ouvrir les intégrations",
+      "nouns": {
+        "calendar": "calendrier",
+        "inbox": "boîte de réception"
+      }
+    },
+    "usageMeter": {
+      "loading": "Chargement de l'utilisation…",
+      "tokensThisMonth": "Jetons ce mois-ci",
+      "resets": "Réinitialisations",
+      "resetsLower": "réinitialisations",
+      "nearLimit": "Vous approchez de votre limite mensuelle. Envisagez de passer à un forfait supérieur pour éviter les interruptions.",
+      "atLimit": "Vous avez atteint votre limite mensuelle. Passez à un forfait supérieur pour continuer à discuter."
+    },
+    "accountManager": {
+      "loading": "Chargement de votre gestionnaire de compte…",
+      "heading": "Votre gestionnaire de compte",
+      "sharedDesk": "Bureau de support exécutif partagé",
+      "bookTime": "Réserver un créneau"
+    },
+    "upgradeModal": {
+      "heading": "Choisissez un forfait",
+      "sub": "Essayez Kin gratuitement d'abord, puis passez à un forfait supérieur quand vous en avez besoin. Annulez à tout moment.",
+      "close": "Fermer",
+      "mostPopular": "Le plus populaire",
+      "currentPlan": "Forfait actuel",
+      "upgradeNow": "Mettre à niveau maintenant",
+      "loading": "Chargement…",
+      "stayFree": "Rester sur le forfait gratuit",
+      "checkoutUnavailable": "Paiement indisponible",
+      "plans": {
+        "free": {
+          "name": "Gratuit",
+          "features": [
+            "1M de jetons / mois",
+            "Lecture Gmail + Agenda",
+            "Tâches & Contacts",
+            "Mémoire à long terme"
+          ]
+        },
+        "basic": {
+          "name": "Basique",
+          "features": [
+            "3M de jetons / mois",
+            "Tout ce qui est inclus dans le forfait gratuit",
+            "Briefing quotidien",
+            "Voix sur Telegram"
+          ]
+        },
+        "pro": {
+          "name": "Pro",
+          "features": [
+            "10M de jetons / mois",
+            "Tout ce qui est inclus dans le forfait basique",
+            "Invite système personnalisée",
+            "Traitement prioritaire",
+            "Connectez jusqu'à 3 comptes Google"
+          ]
+        },
+        "executive": {
+          "name": "Exécutif",
+          "features": [
+            "30M de jetons / mois",
+            "Tout ce qui est inclus dans le forfait Pro",
+            "Webhooks & API personnalisés",
+            "Gestionnaire de compte dédié"
+          ]
+        }
+      }
+    },
+    "overview": {
+      "monthlyUsage": "Utilisation mensuelle",
+      "planAndCount": "Forfait et nombre de messages ce mois-ci.",
+      "managePlan": "Gérer le forfait",
+      "startChat": "Démarrer une discussion",
+      "startChatSub": "Demandez n'importe quoi à Kin dans le navigateur.",
+      "speakToKin": "Parler à Kin",
+      "speakToKinSub": "Enregistrez une note vocale — Kin la transcrit nativement.",
+      "connectTelegram": "Connecter Telegram",
+      "linked": "Lié ✓",
+      "useFromPhone": "Utilisez Kin depuis votre téléphone.",
+      "stats": {
+        "conversations24h": "Conversations (24h)",
+        "conversations24hHint": "tours utilisateur + assistant",
+        "conversations7d": "Conversations (7j)",
+        "conversations7dHint": "semaine glissante",
+        "openTasks": "Tâches ouvertes",
+        "openTasksHint": "toutes priorités confondues",
+        "contacts": "Contacts",
+        "contactsHint": "dans votre carnet d'adresses"
+      },
+      "recentActivity": "Activité récente",
+      "recentActivitySub": "Vos derniers échanges avec Kin sur le web et Telegram.",
+      "viewAll": "Voir tout",
+      "voiceMessage": "(message vocal)",
+      "emptyTitle": "Aucune conversation pour l'instant",
+      "emptySub": "Envoyez votre premier message et Kin commencera à vous aider dans votre journée.",
+      "openChat": "Ouvrir le chat"
+    },
+    "activity": {
+      "emptyTitle": "Rien ici pour l'instant",
+      "emptySub": "Démarrez une discussion ou envoyez un message au bot Telegram pour voir votre activité ici.",
+      "filters": {
+        "all": "Tout",
+        "web": "Web",
+        "telegram": "Telegram",
+        "cron": "Briefing"
+      },
+      "events": "{count, plural, one {# événement} other {# événements}}",
+      "emptyFilterTitle": "Rien dans cette vue",
+      "emptyFilterSub": "Essayez un filtre différent, ou démarrez une discussion pour générer de l'activité.",
+      "noText": "(pas de texte)"
+    },
+    "billing": {
+      "currentPlan": "Forfait actuel",
+      "renews": "Renouvellement le {date}",
+      "manageSubscription": "Gérer l'abonnement",
+      "upgrade": "Mettre à niveau",
+      "changePlan": "Changer de forfait",
+      "billingNotice": "La facturation est gérée par Lemon Squeezy. Les reçus et factures fiscales sont envoyés à <b>{email}</b>.",
+      "planFeatures": {
+        "free": [
+          "1M de jetons / mois",
+          "Gmail + Agenda",
+          "Tâches & Contacts",
+          "Mémoire à long terme",
+          "Bot Telegram"
+        ],
+        "basic": [
+          "3M de jetons / mois",
+          "Tout ce qui est inclus dans le forfait gratuit",
+          "Briefing matinal quotidien",
+          "Messages vocaux"
+        ],
+        "pro": [
+          "10M de jetons / mois",
+          "Tout ce qui est inclus dans le forfait basique",
+          "Invite système personnalisée",
+          "Traitement prioritaire",
+          "Connectez jusqu'à 3 comptes Google"
+        ],
+        "executive": [
+          "30M de jetons / mois",
+          "Tout ce qui est inclus dans le forfait Pro",
+          "Webhooks & API personnalisés",
+          "Gestionnaire de compte dédié",
+          "Réglage trimestriel des invites"
+        ]
+      }
+    },
+    "calendar": {
+      "refresh": "Actualiser",
+      "allDay": "Toute la journée",
+      "filters": {
+        "all": "Tout",
+        "google": "Google",
+        "microsoft": "Microsoft"
+      },
+      "emptyAllTitle": "Rien de prévu",
+      "emptyFilterTitle": "Aucun événement {filter}",
+      "emptyAllSub": "Vos 7 prochains jours sont entièrement libres.",
+      "emptyFilterSub": "Essayez un filtre différent.",
+      "attendee": "{count, plural, one {# participant} other {# participants}}",
+      "loadError": "Impossible de charger le calendrier"
+    },
+    "memory": {
+      "kinds": {
+        "preference": "Préférence",
+        "fact": "Fait",
+        "event": "Événement",
+        "relationship": "Personne",
+        "goal": "Objectif",
+        "habit": "Habitude"
+      },
+      "searchPlaceholder": "Rechercher des souvenirs…",
+      "forgetAll": "Tout oublier",
+      "addMemory": "Ajouter un souvenir",
+      "all": "Tout",
+      "loadError": "Impossible de charger les souvenirs",
+      "forgetConfirm": "Oublier ce souvenir ?",
+      "deleteFailed": "Échec de la suppression",
+      "wipeFailed": "Échec de l'effacement",
+      "nothingYet": "Rien de mémorisé pour l'instant",
+      "noMatches": "Aucune correspondance",
+      "nothingYetSub": "Kin se souviendra automatiquement des faits stables vous concernant au fur et à mesure de vos discussions — préférences, relations, objectifs en cours.",
+      "tryDifferent": "Essayez une recherche ou un filtre différent.",
+      "addedOn": "Ajouté le {date}",
+      "forget": "Oublier",
+      "addDialog": {
+        "title": "Apprenez quelque chose à Kin",
+        "description": "Écrivez un fait que vous voulez que Kin retienne pour les futures discussions.",
+        "memoryLabel": "Souvenir",
+        "memoryPlaceholder": "ex. Ma sœur Maya vit à Berlin et étudie l'architecture.",
+        "kindLabel": "Type",
+        "addFailed": "Échec de l'ajout",
+        "cancel": "Annuler",
+        "rememberThis": "Retenir ceci"
+      },
+      "wipeDialog": {
+        "title": "Tout oublier ?",
+        "body": "Kin supprimera définitivement tous les souvenirs stockés. Les futures conversations commenceront à zéro. Cette action est irréversible.",
+        "cancel": "Annuler",
+        "confirm": "Oui, tout oublier"
+      }
+    },
+    "inbox": {
+      "refresh": "Actualiser",
+      "filters": {
+        "all": "Tout",
+        "google": "Google",
+        "microsoft": "Microsoft"
+      },
+      "inboxZero": "Boîte de réception vide",
+      "noSourceMessages": "Aucun message {source}",
+      "nothingNew": "Rien de nouveau à résumer.",
+      "loadError": "Impossible de charger la boîte de réception"
+    },
+    "developer": {
+      "upsell": {
+        "title": "Les clés API et les webhooks sont une fonctionnalité Exécutive",
+        "body": "Développez sur votre propre Kin avec une clé API personnelle, et recevez un appel webhook signé chaque fois que Kin envoie une réponse.",
+        "cta": "Passer au forfait Exécutif"
+      },
+      "apiKeys": {
+        "title": "Clés API",
+        "description": "Envoyez des messages à votre propre Kin par programmation : {endpoint} avec {header}. Compte pour votre quota mensuel normal.",
+        "revealNotice": "Copiez cette clé maintenant — elle ne sera plus affichée.",
+        "dismiss": "Terminé, masquer",
+        "loadError": "Impossible de charger les clés API",
+        "createError": "Impossible de créer la clé API",
+        "revokeError": "Impossible de révoquer la clé",
+        "nameLabel": "Nom",
+        "namePlaceholder": "ex. Intégration Zapier",
+        "createKey": "Créer une clé",
+        "requests": "{count, plural, one {# requête} other {# requêtes}}",
+        "lastUsed": "dernière utilisation le {date}",
+        "neverUsed": "jamais utilisé",
+        "revoked": "révoqué",
+        "empty": "Aucune clé API pour l'instant."
+      },
+      "webhooks": {
+        "title": "Webhooks",
+        "description": "Recevez un {post} signé chaque fois que Kin vous envoie une réponse. Vérifiez l'en-tête {header} (HMAC-SHA256 du corps brut) en utilisant le secret affiché une fois ci-dessous. La livraison est à tentative unique — les échecs sont enregistrés, non réessayés.",
+        "revealNotice": "Copiez ce secret de signature maintenant — il ne sera plus affiché.",
+        "dismiss": "Terminé, masquer",
+        "loadError": "Impossible de charger les webhooks",
+        "createError": "Impossible de créer le webhook",
+        "updateError": "Impossible de mettre à jour le webhook",
+        "deleteError": "Impossible de supprimer le webhook",
+        "urlLabel": "URL du point de terminaison",
+        "urlHint": "Doit être https:// — se déclenche lors de message.created",
+        "urlPlaceholder": "https://votre-serveur.com/webhook-kin",
+        "addWebhook": "Ajouter un webhook",
+        "disable": "Désactiver le webhook",
+        "enable": "Activer le webhook",
+        "addedOn": "ajouté le {date}",
+        "empty": "Aucun webhook configuré pour l'instant."
+      }
+    },
+    "contacts": {
+      "searchPlaceholder": "Rechercher des contacts…",
+      "addContact": "Ajouter un contact",
+      "tabs": {
+        "all": "Tout",
+        "kin": "Kin",
+        "google": "Google",
+        "microsoft": "Microsoft"
+      },
+      "connectBoth": "Connectez Google ou Microsoft",
+      "connectGoogle": "Connecter Google",
+      "connectMicrosoft": "Connecter Microsoft",
+      "atIntegrations": "à",
+      "integrationsLink": "Intégrations",
+      "toSeeMore": "pour voir plus de contacts.",
+      "noMatches": "Aucune correspondance",
+      "noContactsYet": "Aucun contact pour l'instant",
+      "tryDifferentName": "Essayez un nom ou une entreprise différente.",
+      "addPeopleHint": "Ajoutez les personnes que Kin devrait connaître.",
+      "deleteConfirm": "Supprimer {name} des contacts Kin ? (Les contacts Google ne peuvent être supprimés que dans Google.)",
+      "sourcePills": {
+        "kin": "Kin",
+        "google": "Google",
+        "microsoft": "Microsoft"
+      },
+      "noName": "(pas de nom)",
+      "dialog": {
+        "editTitle": "Modifier le contact",
+        "newTitle": "Nouveau contact",
+        "editDesc": "Modification d'un contact local Kin. Les contacts Google sont gérés dans Google.",
+        "newDesc": "Choisissez où enregistrer : localement dans Kin, dans vos contacts Google, ou dans vos contacts Microsoft.",
+        "saveTo": "Enregistrer dans",
+        "kinLocal": "Kin (local)",
+        "googleContacts": "Contacts Google",
+        "microsoftContacts": "Contacts Microsoft",
+        "nameLabel": "Nom",
+        "namePlaceholder": "Alex Rivera",
+        "emailLabel": "Email",
+        "emailPlaceholder": "alex@exemple.com",
+        "phoneLabel": "Téléphone",
+        "phonePlaceholder": "+1 555 0100",
+        "companyLabel": "Entreprise",
+        "companyPlaceholder": "Acme Inc.",
+        "notesLabel": "Notes",
+        "notesPlaceholder": "Comment vous les connaissez, préférences, tout ce que Kin devrait retenir…",
+        "notesUnsupportedMicrosoft": "Les notes ne sont pas enregistrées dans les contacts Microsoft.",
+        "saveFailed": "Échec de l'enregistrement",
+        "cancel": "Annuler",
+        "saveChanges": "Enregistrer les modifications",
+        "saveToGoogle": "Enregistrer dans Google",
+        "saveToMicrosoft": "Enregistrer dans Microsoft",
+        "addToKin": "Ajouter à Kin"
+      }
+    },
+    "chat": {
+      "suggestions": {
+        "calendar": "Qu'y a-t-il à mon agenda aujourd'hui ?",
+        "emails": "Résumez mes e-mails non lus.",
+        "task": "Ajoutez 'payer la facture' à mes tâches pour demain.",
+        "reply": "Rédigez une réponse à mon dernier e-mail d'Alex."
+      },
+      "dateGroups": {
+        "today": "Aujourd'hui",
+        "yesterday": "Hier",
+        "previous7Days": "7 derniers jours",
+        "older": "Plus ancien"
+      },
+      "commands": {
+        "scheduleExample": "/schedule [nom] : [invite] à [heure]",
+        "scheduleDesc": "Planifiez une invite récurrente (ex. /schedule Briefing Matinal : Résumez mon agenda à 7h00)"
+      },
+      "thinking": "Réflexion en cours",
+      "deleteChatConfirm": "Supprimer cette discussion ?",
+      "micDenied": "Accès au microphone refusé. Autorisez-le dans les paramètres du navigateur.",
+      "uploading": "📎 Téléchargement de {name}…",
+      "indexed": "📎 **{name}** indexé ({count} morceaux). Posez-moi des questions à ce sujet.",
+      "indexFailed": "📎 Impossible d'indexer **{name}** — {error}",
+      "unknownError": "erreur inconnue",
+      "uploadFailed": "📎 Échec du téléchargement : {error}",
+      "uploadFailedGeneric": "Échec du téléchargement.",
+      "voiceProcessingFailed": "Échec du traitement vocal.",
+      "somethingWrong": "Quelque chose s'est mal passé.",
+      "toggleHistory": "Basculer l'historique des discussions",
+      "currentChat": "Discussion actuelle",
+      "messagesCount": "{count, plural, one {# message} other {# messages}}",
+      "newChat": "Nouvelle discussion",
+      "chatHistory": "Historique des discussions",
+      "closeHistory": "Fermer l'historique",
+      "searchChatsPlaceholder": "Rechercher des discussions…",
+      "noSearchMatches": "Aucune discussion ne correspond à votre recherche.",
+      "noChatsYet": "Vos discussions précédentes apparaîtront ici une fois que vous commencerez à envoyer des messages à Kin.",
+      "untitledSession": "Session sans titre",
+      "deleteChat": "Supprimer la discussion",
+      "commandsLabel": "Commandes",
+      "pressEnter": "Appuyez sur Entrée",
+      "quotaExceeded": "Vous avez utilisé tous vos messages ce mois-ci.",
+      "upgradeToKeepChatting": "Mettez à niveau votre forfait pour continuer à discuter.",
+      "seePlans": "Voir les forfaits →",
+      "noReply": "(pas de réponse de l'assistant)",
+      "listening": "Écoute…",
+      "shiftEnterHint": "Maj + Entrée pour un saut de ligne",
+      "uploadDocument": "Télécharger un document",
+      "uploadDocumentTitle": "Télécharger un PDF, DOCX ou texte à indexer",
+      "stopRecording": "Arrêter l'enregistrement",
+      "recordVoice": "Enregistrer la voix",
+      "send": "Envoyer",
+      "messagePlaceholder": "Envoyer un message à Kin…",
+      "pause": "Pause",
+      "play": "Lecture",
+      "welcome": {
+        "title": "Comment puis-je vous aider aujourd'hui ?",
+        "body": "Kin peut lire votre calendrier, résumer votre boîte de réception, gérer les tâches et répondre aux questions sur vos contacts."
+      }
+    },
+    "mcp": {
+      "oauthSuccess": "Serveur MCP autorisé avec succès.",
+      "oauthErrorPrefix": "Échec de l'autorisation OAuth : {detail}",
+      "oauthErrorGeneric": "Échec de l'authentification.",
+      "loadError": "Échec du chargement des serveurs MCP.",
+      "nameRequired": "Le nom est requis.",
+      "nameInvalid": "Le nom doit contenir uniquement des caractères alphanumériques et des underscores.",
+      "urlRequired": "L'URL SSE est requise.",
+      "addedAwaitingAuth": "Serveur MCP '{name}' ajouté. Cliquez sur 'Autoriser' pour le connecter.",
+      "addedConnected": "Serveur MCP '{name}' ajouté et connecté avec succès.",
+      "connectFailed": "Échec de la connexion au serveur MCP distant.",
+      "testSuccess": "Test de connexion réussi. {count} outil(s) trouvé(s).",
+      "testFailed": "Échec du test de connexion.",
+      "authorizeFailed": "Échec du démarrage du flux d'autorisation.",
+      "deleteConfirm": "Êtes-vous sûr de vouloir déconnecter et supprimer le serveur MCP '{name}' ?",
+      "deleted": "Serveur MCP '{name}' supprimé.",
+      "deleteFailed": "Échec de la suppression du serveur MCP.",
+      "dismiss": "Ignorer",
+      "header": {
+        "title": "Serveurs MCP distants",
+        "description": "Étendez les capacités de Kin en utilisant le protocole Model Context. Les serveurs connectés fournissent dynamiquement de nouveaux outils.",
+        "addServer": "Ajouter un serveur MCP"
+      },
+      "loading": "Chargement des serveurs MCP...",
+      "empty": {
+        "title": "Aucun serveur MCP connecté",
+        "body": "Ajoutez votre premier hôte SSE (Server-Sent Events) pour donner à Kin des outils personnalisés comme des clés de requête de base de données, des environnements d'exécution d'analyse de code ou des API.",
+        "addServer": "Ajouter un serveur"
+      },
+      "awaitingAuth": "En attente d'autorisation",
+      "active": "Actif",
+      "headersCount": "{count, plural, one {# en-tête} other {# en-têtes}}",
+      "toolsCount": "{count, plural, one {# outil} other {# outils}}",
+      "authorize": "Autoriser",
+      "testConnection": "Tester la connexion",
+      "discoveredTools": "Outils découverts",
+      "callableAs": "Appelable via Gemini comme :",
+      "noToolsYet": "Aucun outil découvert sur ce serveur pour l'instant. Exécutez un test de connexion.",
+      "noDescription": "Aucune description fournie.",
+      "parameters": "Paramètres",
+      "addDialog": {
+        "title": "Ajouter un serveur MCP",
+        "description": "Établissez une connexion SSE (Server-Sent Events) à des outils d'assistant dynamiques.",
+        "nameLabel": "Nom du serveur",
+        "nameHint": "Doit être alphanumérique et contenir uniquement des underscores. Utilisé pour préfixer les noms d'outils (ex. 'github').",
+        "namePlaceholder": "ex. github",
+        "urlLabel": "URL du point de terminaison SSE",
+        "urlHint": "URL du point de terminaison de flux SSE qui émet des points de terminaison client.",
+        "urlPlaceholder": "http://localhost:3012/sse",
+        "customHeaders": "En-têtes personnalisés",
+        "addHeader": "Ajouter un en-tête",
+        "headerKeyPlaceholder": "Clé d'en-tête (ex. Authorization)",
+        "headerValuePlaceholder": "Valeur d'en-tête",
+        "hideOauth": "Masquer les options OAuth avancées",
+        "showOauth": "Afficher les options OAuth avancées (Manuel)",
+        "clientIdLabel": "ID client",
+        "clientIdHint": "ID client enregistré pour ce serveur.",
+        "clientIdPlaceholder": "oauth-client-id",
+        "clientSecretLabel": "Secret client (Facultatif)",
+        "clientSecretHint": "Si requis par le serveur.",
+        "clientSecretPlaceholder": "oauth-client-secret",
+        "authUrlLabel": "URL du point de terminaison d'autorisation",
+        "authUrlHint": "Découvert automatiquement si omis.",
+        "tokenUrlLabel": "URL du point de terminaison de jeton",
+        "tokenUrlHint": "Découvert automatiquement si omis.",
+        "scopesLabel": "Portées (Facultatif)",
+        "scopesHint": "Liste des portées séparées par des espaces à demander.",
+        "scopesPlaceholder": "ex. read write tools",
+        "cancel": "Annuler",
+        "connectServer": "Connecter le serveur"
+      }
+    },
+    "voiceAgents": {
+      "loadError": "Échec du chargement des agents vocaux.",
+      "nameRequired": "Le nom est obligatoire.",
+      "personaRequired": "Une personnalité / instruction système est requise.",
+      "saveFailed": "Échec de l'enregistrement de l'agent vocal.",
+      "deleteFailed": "Échec de la suppression de l'agent vocal.",
+      "deleteConfirm": "Voulez-vous vraiment supprimer l'agent vocal « {name} » ?",
+      "created": "Agent vocal « {name} » créé en tant que brouillon.",
+      "updated": "Agent vocal « {name} » mis à jour.",
+      "deleted": "Agent vocal « {name} » supprimé.",
+      "dismiss": "Ignorer",
+      "loading": "Chargement des agents vocaux...",
+      "noNumber": "Pas encore de numéro de téléphone",
+      "brainSummary": "{llm} · {stt} · {tts}",
+      "connectNumber": "Connecter un numéro",
+      "testCall": "Appel test",
+      "testCallPrompt": "Numéro à appeler (avec indicatif pays, ex. +14155551234) :",
+      "testCallStarted": "Appel test vers {number} en cours.",
+      "testCallFailed": "Échec de l'appel test.",
+      "callHistory": "Historique des appels",
+      "noCallsYet": "Aucun appel pour le moment.",
+      "inbound": "Entrant",
+      "outbound": "Sortant",
+      "numberSearchFailed": "Échec de la recherche de numéros disponibles.",
+      "numberProvisionFailed": "Échec de la connexion de ce numéro.",
+      "numberConnected": "{number} connecté à cet agent.",
+      "header": {
+        "title": "Agents vocaux",
+        "description": "Agents téléphoniques IA pour les appels commerciaux et l'accueil, propulsés par LiveKit.",
+        "addAgent": "Nouvel agent vocal"
+      },
+      "empty": {
+        "title": "Aucun agent vocal pour le moment",
+        "body": "Créez un agent vocal de vente ou d'accueil — ou demandez simplement à Kin de le faire pour vous dans le chat.",
+        "addAgent": "Créer un agent vocal"
+      },
+      "useCase": {
+        "sales": "Ventes",
+        "receptionist": "Accueil",
+        "custom": "Personnalisé"
+      },
+      "status": {
+        "draft": "Brouillon",
+        "provisioning": "Provisionnement",
+        "active": "Actif",
+        "paused": "En pause",
+        "error": "Erreur"
+      },
+      "llmProvider": {
+        "openai": "OpenAI",
+        "anthropic": "Anthropic",
+        "google": "Google Gemini",
+        "groq": "Groq",
+        "xai": "xAI Grok"
+      },
+      "sttProvider": {
+        "deepgram": "Deepgram",
+        "google": "Google",
+        "azure": "Azure",
+        "assemblyai": "AssemblyAI",
+        "openai": "OpenAI Whisper"
+      },
+      "ttsProvider": {
+        "elevenlabs": "ElevenLabs",
+        "cartesia": "Cartesia",
+        "rime": "Rime",
+        "lmnt": "LMNT",
+        "azure": "Azure"
+      },
+      "telephonyProvider": {
+        "twilio_managed": "Twilio",
+        "telnyx_managed": "Telnyx",
+        "byo_sip": "Votre propre trunk SIP"
+      },
+      "tool": {
+        "create_calendar_event": "Réserver des événements de calendrier",
+        "check_calendar_availability": "Vérifier la disponibilité du calendrier",
+        "create_lead": "Enregistrer l'appelant comme prospect"
+      },
+      "formDialog": {
+        "createTitle": "Nouvel agent vocal",
+        "editTitle": "Modifier l'agent vocal",
+        "description": "Ceci crée un brouillon — connectez un numéro de téléphone lorsque vous êtes prêt à recevoir de vrais appels.",
+        "basicsSection": "Informations de base",
+        "nameLabel": "Nom",
+        "namePlaceholder": "ex. Vente sortante — Acme",
+        "useCaseLabel": "Cas d'usage",
+        "personaLabel": "Personnalité / instruction système",
+        "personaHint": "Qui est l'agent, ce qu'il essaie d'accomplir lors d'un appel, et son ton.",
+        "personaPlaceholder": "Vous êtes Jordan, un représentant commercial sympathique chez Acme Co...",
+        "greetingLabel": "Message d'accueil (optionnel)",
+        "greetingHint": "La première phrase exacte que l'agent utilise pour ouvrir l'appel. Laissez vide pour qu'il improvise.",
+        "greetingPlaceholder": "Bonjour, c'est Jordan d'Acme — vous avez une minute ?",
+        "brainSection": "Voix et cerveau",
+        "llmProviderLabel": "Fournisseur LLM",
+        "llmModelLabel": "Modèle LLM",
+        "sttProviderLabel": "Reconnaissance vocale",
+        "ttsProviderLabel": "Synthèse vocale",
+        "ttsVoiceLabel": "Voix",
+        "ttsVoiceHint": "ID de voix spécifique au fournisseur. Laissez vide pour la voix par défaut.",
+        "ttsVoicePlaceholder": "ex. un ID de voix de votre fournisseur TTS",
+        "keysSection": "Clés fournisseur (les vôtres)",
+        "keysSectionHint": "Chaque clé vous appartient, pas à Kin — l'usage est facturé directement par ce fournisseur sur votre compte. Laissez vide pour conserver ce qui est déjà enregistré.",
+        "llmKeyLabel": "Clé API du LLM",
+        "sttKeyLabel": "Clé API reconnaissance vocale",
+        "ttsKeyLabel": "Clé API synthèse vocale",
+        "keySavedHint": "Une clé est déjà enregistrée — laissez vide pour la conserver.",
+        "keyPlaceholderSaved": "•••••••••••• (enregistrée)",
+        "keyPlaceholderEmpty": "Collez votre clé API",
+        "toolsSection": "Outils activés pendant les appels",
+        "cancel": "Annuler",
+        "save": "Enregistrer les modifications",
+        "create": "Créer un brouillon"
+      },
+      "numberDialog": {
+        "title": "Connecter un numéro de téléphone",
+        "description": "Recherchez et provisionnez un numéro. Cela peut entraîner des frais chez le fournisseur de téléphonie.",
+        "providerLabel": "Fournisseur",
+        "search": "Rechercher des numéros disponibles"
+      }
+    },
+    "settings": {
+      "saveError": "Impossible d'enregistrer cette modification",
+      "deleteAccountError": "Impossible de supprimer le compte",
+      "exportFailed": "Échec de l'exportation",
+      "profile": {
+        "title": "Profil",
+        "sub": "Comment Kin s'adresse à vous.",
+        "displayNameLabel": "Nom d'affichage",
+        "displayNamePlaceholder": "Votre nom",
+        "timezoneLabel": "Fuseau horaire",
+        "timezoneHint": "Utilisé pour interpréter 'aujourd'hui', 'demain' et l'heure du briefing.",
+        "timezonePlaceholder": "Choisissez un fuseau horaire",
+        "countryLabel": "Pays",
+        "countryPlaceholder": "Choisissez un pays"
+      },
+      "personality": {
+        "title": "Personnalité",
+        "sub": "Outrepassez l'invite système par défaut. <code>'{today}'</code> est remplacé par la date actuelle.",
+        "promptLabel": "Invite système",
+        "restoreDefault": "Restaurer par défaut"
+      },
+      "briefing": {
+        "title": "Briefing matinal",
+        "sub": "Un résumé quotidien envoyé à votre discussion Telegram liée. Nécessite Telegram + Google.",
+        "toggle": "M'envoyer un briefing quotidien",
+        "timeLabel": "Heure de la journée",
+        "timeHint": "Heure locale selon votre fuseau horaire."
+      },
+      "memory": {
+        "title": "Mémoire à long terme",
+        "sub": "Lorsque activé, Kin se souvient des faits stables vous concernant à travers les conversations et les utilise comme contexte. Gérez ce qui est stocké à <link>/dashboard/memory</link>.",
+        "toggle": "Laisser Kin apprendre sur moi au fil du temps"
+      },
+      "confirmWrite": {
+        "title": "Confirmer avant d'agir",
+        "sub": "Lorsque activé, Kin récapitule toute action importante — envoyer ou répondre à un e-mail, partager un fichier, créer ou supprimer un événement — et attend votre confirmation avant de l'exécuter. Activé par défaut pour les nouveaux comptes ; les actions en lecture seule n'ont jamais besoin de confirmation.",
+        "toggle": "Me demander de confirmer avant que Kin n'envoie, ne partage ou ne supprime quoi que ce soit"
+      },
+      "emailFollowups": {
+        "title": "Relances par e-mail",
+        "sub": "Fonctionnalité Basic+. Pour les e-mails que Kin envoie en votre nom : recevez un message Telegram dès que quelqu'un répond, et si un fil de discussion reste silencieux pendant 48 heures, Kin vous proposera d'envoyer une relance — il n'en envoie jamais sans votre accord préalable.",
+        "toggle": "Me notifier des réponses et proposer des relances"
+      },
+      "signature": {
+        "title": "Signature d'e-mail",
+        "sub": "Ajoutée automatiquement à chaque e-mail que Kin envoie en votre nom — Kin n'écrit jamais sa propre formule de politesse. Gratuit pour tous.",
+        "toggle": "Ajouter ma signature aux e-mails sortants",
+        "nameLabel": "Nom",
+        "namePlaceholder": "Tharindu Damayantha",
+        "titleLabel": "Titre / entreprise",
+        "titlePlaceholder": "Ingénieur Process, Crystal Martin",
+        "phoneLabel": "Téléphone (facultatif)",
+        "phonePlaceholder": "+94 71 234 5678",
+        "linksLabel": "Liens (LinkedIn, portfolio, etc.)",
+        "addLink": "Ajouter un lien",
+        "linkLabelPlaceholder": "LinkedIn",
+        "linkUrlPlaceholder": "https://linkedin.com/in/...",
+        "removeLink": "Supprimer le lien",
+        "noLinks": "Aucun lien ajouté.",
+        "preview": "Aperçu",
+        "previewEmpty": "(rien à afficher pour l'instant — remplissez un champ ci-dessus)"
+      },
+      "exportData": {
+        "title": "Exporter vos données",
+        "sub": "Téléchargez tout ce que Kin a sur vous — historique complet des discussions, souvenirs à long terme et tâches planifiées — sous la forme d'un seul fichier JSON.",
+        "download": "Télécharger mes données"
+      },
+      "communication": {
+        "title": "Préférences de communication",
+        "sub": "E-mails marketing. Toujours facultatif.",
+        "toggle": "M'envoyer des mises à jour de produits et des conseils occasionnels."
+      },
+      "dangerZone": {
+        "title": "Zone de danger",
+        "sub": "Une fois votre compte supprimé, l'historique des conversations et les intégrations sont effacés.",
+        "deleteAccount": "Supprimer mon compte",
+        "confirmBody": "Cela vous déconnectera et effacera vos données. Êtes-vous sûr ?",
+        "cancel": "Annuler",
+        "confirmDelete": "Oui, supprimer"
+      },
+      "saveIndicator": {
+        "saving": "Enregistrement…",
+        "saved": "Enregistré",
+        "genericError": "Impossible d'enregistrer"
+      },
+      "promptTuning": {
+        "title": "Réglage trimestriel des invites",
+        "sub": "Kin examine vos 90 derniers jours de conversations et suggère une invite système révisée.",
+        "tuneButton": "Régler mon invite",
+        "nextEligible": "Prochaine éligibilité le {date}.",
+        "applied": "Appliqué — enregistré ci-dessous.",
+        "suggestFailed": "Impossible de générer une suggestion",
+        "applyFailed": "Impossible d'appliquer la suggestion",
+        "acceptApply": "Accepter et appliquer",
+        "dismiss": "Ignorer"
+      }
+    },
+    "integrations": {
+      "banners": {
+        "googleOk": "Google connecté. Gmail, Agenda, Tâches, Contacts, Drive, Docs, Sheets et Slides sont maintenant disponibles.",
+        "googleAdded": "Compte Google supplémentaire connecté — Kin lira désormais aussi son Gmail et son Agenda.",
+        "googleError": "Impossible de connecter Google. Réessayez ou vérifiez que l'URI de redirection est autorisée.",
+        "microsoftOk": "Microsoft connecté. Outlook Mail, Agenda, Contacts, OneDrive et ToDo sont maintenant disponibles.",
+        "microsoftError": "Impossible de connecter Microsoft. Vérifiez l'URI de redirection dans l'enregistrement de votre application Azure AD."
+      },
+      "failed": "Échec",
+      "disconnectMicrosoftConfirm": "Déconnecter Microsoft ? Cela désactivera Outlook Mail, Agenda, Contacts, OneDrive et ToDo.",
+      "microsoftDisconnected": "Microsoft déconnecté.",
+      "disconnectGoogleConfirm": "Déconnecter Google ? Cela désactivera toutes les intégrations Google (Gmail, Agenda, Tâches, Contacts, Drive, Docs, Sheets, Slides) et effacera les jetons mis en cache.",
+      "googleDisconnected": "Google déconnecté.",
+      "unlinkTelegramConfirm": "Dissocier cette discussion Telegram ?",
+      "telegramUnlinked": "Telegram dissocié.",
+      "telegramLinked": "Telegram lié.",
+      "dismiss": "Ignorer",
+      "google": {
+        "title": "Compte Google",
+        "connected": "Connecté en tant que {email}",
+        "disconnected": "Connectez-vous une fois pour activer Gmail, Agenda, Tâches, Contacts, Drive, Docs, Sheets et Slides.",
+        "disconnect": "Déconnecter",
+        "connect": "Connecter Google"
+      },
+      "microsoft": {
+        "title": "Compte Microsoft 365",
+        "connected": "Connecté en tant que {email}",
+        "disconnected": "Connectez-vous pour activer Outlook Mail, Agenda, Contacts, OneDrive et ToDo.",
+        "disconnect": "Déconnecter",
+        "connect": "Connecter Microsoft"
+      },
+      "services": {
+        "gmail": {
+          "title": "Gmail",
+          "description": "Lire, envoyer, répondre, étiqueter et supprimer des e-mails. Kin gère des fils de discussion entiers, des brouillons et des étiquettes.",
+          "dashboardLabel": "Voir la boîte de réception"
+        },
+        "calendarGoogle": {
+          "title": "Agenda",
+          "description": "Lire les événements à venir, créer/mettre à jour/annuler des réunions et vérifier les disponibilités sur la semaine.",
+          "dashboardLabel": "Voir le calendrier"
+        },
+        "tasksGoogle": {
+          "title": "Tâches",
+          "description": "Lister, créer, compléter et supprimer des tâches Google dans vos listes de tâches.",
+          "dashboardLabel": "Ouvrir les tâches"
+        },
+        "contactsGoogle": {
+          "title": "Contacts",
+          "description": "Rechercher des numéros de téléphone, des e-mails et des notes. Créer ou mettre à jour des contacts de l'API People.",
+          "dashboardLabel": "Ouvrir les contacts"
+        },
+        "drive": {
+          "title": "Drive",
+          "description": "Indexer des dossiers pour RAG afin que Kin puisse répondre en se basant sur vos fichiers. Aussi : télécharger, copier, déplacer, renommer, partager, supprimer.",
+          "dashboardLabel": "Gérer les documents"
+        },
+        "docs": {
+          "title": "Docs",
+          "description": "Lire le texte complet des documents, créer de nouveaux documents, ajouter ou remplacer du contenu via le chat.",
+          "dashboardLabel": "Utiliser dans le chat"
+        },
+        "sheets": {
+          "title": "Sheets",
+          "description": "Lire des plages, ajouter des lignes, mettre à jour des cellules, effacer des plages, ajouter ou supprimer des onglets et des feuilles de calcul.",
+          "dashboardLabel": "Utiliser dans le chat"
+        },
+        "slides": {
+          "title": "Slides",
+          "description": "Lire des présentations et effectuer des recherches-remplacements pour des présentations basées sur des modèles.",
+          "dashboardLabel": "Utiliser dans le chat"
+        },
+        "outlookMail": {
+          "title": "Outlook Mail",
+          "description": "Lire, envoyer, répondre, marquer comme lu/non lu, déplacer et supprimer des e-mails Microsoft Outlook.",
+          "dashboardLabel": "Voir la boîte de réception",
+          "openLabel": "Ouvrir dans Outlook"
+        },
+        "outlookCalendar": {
+          "title": "Outlook Calendar",
+          "description": "Lire, créer, mettre à jour et supprimer des événements dans vos calendriers Outlook.",
+          "dashboardLabel": "Voir le calendrier",
+          "openLabel": "Ouvrir dans Outlook"
+        },
+        "outlookContacts": {
+          "title": "Outlook Contacts",
+          "description": "Rechercher, créer et supprimer des personnes dans votre carnet d'adresses Microsoft 365.",
+          "dashboardLabel": "Voir les contacts",
+          "openLabel": "Ouvrir dans Outlook"
+        },
+        "oneDrive": {
+          "title": "OneDrive",
+          "description": "Indexer des dossiers pour RAG et rechercher des fichiers. La même page /dashboard/documents gère les deux fournisseurs.",
+          "dashboardLabel": "Gérer les documents",
+          "openLabel": "Ouvrir dans OneDrive"
+        },
+        "microsoftToDo": {
+          "title": "Microsoft ToDo",
+          "description": "Lister, créer, compléter et supprimer des tâches dans vos listes Microsoft ToDo.",
+          "dashboardLabel": "Voir les tâches",
+          "openLabel": "Ouvrir dans ToDo"
+        }
+      },
+      "connectedBadge": "Connecté",
+      "offBadge": "Désactivé",
+      "connect": "Connecter",
+      "disconnect": "Déconnecter",
+      "open": "Ouvrir",
+      "linkedAccount": "Compte lié",
+      "openInGoogle": "Ouvrir dans Google",
+      "openInOutlook": "Ouvrir dans Outlook",
+      "openInMicrosoft": "Ouvrir dans Microsoft",
+      "connectGoogleLabel": "Connecter Google",
+      "connectMicrosoftLabel": "Connecter Microsoft",
+      "extraAccounts": {
+        "loadError": "Impossible de charger les comptes connectés",
+        "title": "Comptes Google supplémentaires",
+        "subtitle": "Connectez d'autres comptes Gmail/Calendar (ex. pro + perso) — Pro et Executive.",
+        "upsellBody": "Connectez plus de comptes Gmail/Agenda (ex. travail + personnel) — Forfaits Pro et Exécutif.",
+        "upgrade": "Mettre à niveau",
+        "body": "Kin lit également Gmail et l'Agenda de ces comptes. L'envoi de courrier et la création d'événements utilisent toujours votre compte principal ci-dessus.",
+        "connectAnother": "Connecter un autre compte",
+        "connectedFallback": "Compte connecté",
+        "addAccount": "Ajouter un compte",
+        "addError": "Échec de l'ajout du compte",
+        "removeConfirm": "Supprimer ce compte ?",
+        "removeError": "Échec de la suppression du compte",
+        "remove": "Supprimer",
+        "disconnect": "Déconnecter",
+        "countLabel": "{count} / {max} comptes supplémentaires connectés."
+      },
+      "statusConnected": "Connecté",
+      "statusOff": "Désactivé",
+      "telegram": {
+        "title": "Telegram",
+        "description": "Utilisez Kin depuis votre téléphone. Le bot se trouve à {botLink} — envoyez {startCmd} et il répondra avec votre ID de discussion.",
+        "chatId": "ID de discussion {id}",
+        "notLinked": "Non lié",
+        "unlink": "Dissocier",
+        "link": "Lier Telegram"
+      },
+      "dialog": {
+        "title": "Lier Telegram",
+        "description": "Obtenez votre ID de discussion depuis @KinByPersonaliAI_bot — envoyez /start.",
+        "step1": "Ouvrez {botLink} sur Telegram et appuyez sur <start>Démarrer</start>.",
+        "step2": "Le bot répondra avec votre ID de discussion.",
+        "step3": "Collez cet ID ci-dessous — nous enverrons un message de confirmation pour vérifier.",
+        "chatIdLabel": "ID de discussion Telegram",
+        "chatIdPlaceholder": "ex. 8123456789",
+        "chatIdRequired": "Entrez un ID de discussion numérique.",
+        "linkFailed": "Échec de la liaison",
+        "cancel": "Annuler",
+        "link": "Lier"
+      }
+    },
+    "schedule": {
+      "loadError": "Échec du chargement des tâches planifiées.",
+      "nameRequired": "Le nom de la tâche est requis.",
+      "promptRequired": "Les instructions de l'invite sont requises.",
+      "cronRequired": "L'expression cron est requise.",
+      "updated": "Tâche planifiée '{name}' mise à jour avec succès.",
+      "updateFailed": "Échec de la mise à jour de la tâche planifiée.",
+      "toggled": "La tâche '{name}' est maintenant {state}.",
+      "enabled": "activée",
+      "disabled": "désactivée",
+      "toggleFailed": "Échec de la mise à jour de l'état de la tâche.",
+      "testFailed": "Échec de l'exécution de la tâche.",
+      "deleteConfirm": "Êtes-vous sûr de vouloir supprimer la tâche planifiée '{name}' ?",
+      "deleted": "Tâche planifiée '{name}' supprimée.",
+      "deleteFailed": "Échec de la suppression de la tâche.",
+      "dismiss": "Ignorer",
+      "header": {
+        "title": "Tâches planifiées",
+        "description": "Automatisez les invites en langage naturel. Kin exécute les tâches par rapport à votre fuseau horaire et les livre via le Web ou Telegram."
+      },
+      "loading": "Chargement des tâches planifiées...",
+      "empty": {
+        "title": "Aucune tâche active planifiée",
+        "body": "Créez des tâches planifiées directement depuis l'onglet Chat en utilisant \"/schedule\"."
+      },
+      "channels": {
+        "web": "Chat Web",
+        "telegram": "Telegram",
+        "email": "E-mail"
+      },
+      "neverRun": "Jamais exécuté",
+      "lastRun": "Dernière exécution : {when}",
+      "disableSchedule": "Désactiver la planification",
+      "enableSchedule": "Activer la planification",
+      "editTask": "Modifier la tâche",
+      "testRun": "Exécuter le test",
+      "testing": "Test en cours...",
+      "editDialog": {
+        "title": "Modifier la tâche planifiée",
+        "description": "Mettez à jour les propriétés de la tâche, les détails de la planification et le canal de livraison.",
+        "nameLabel": "Nom de la tâche",
+        "namePlaceholder": "ex. Résumé quotidien des e-mails",
+        "promptLabel": "Invite / Instructions",
+        "promptPlaceholder": "Que doit faire Kin lorsque cette planification se déclenche ?",
+        "channelLabel": "Canal de livraison",
+        "timeLabel": "Heure d'exécution quotidienne",
+        "timeHint": "Heure de déclenchement locale",
+        "timezoneLabel": "Fuseau horaire",
+        "timezoneHint": "La tâche se déclenchera par rapport à ce fuseau horaire.",
+        "timezonePlaceholder": "Sélectionner un fuseau horaire...",
+        "hideCron": "Masquer l'expression Cron avancée",
+        "showCron": "Afficher l'expression Cron avancée",
+        "cronLabel": "Expression Cron",
+        "cronPlaceholder": "ex. 0 20 * * *",
+        "cronHint": "Format cron standard : `minute heure jour-du-mois mois jour-de-la-semaine`. Ex., `0 9 * * *` est tous les jours à 9h00.",
+        "cancel": "Annuler",
+        "saveChanges": "Enregistrer les modifications"
+      },
+      "resultDialog": {
+        "title": "Résultat de l'exécution : {name}",
+        "description": "La réponse en direct renvoyée par Kin.",
+        "noReply": "Aucune réponse textuelle n'a été renvoyée.",
+        "close": "Fermer l'aperçu"
+      }
+    },
+    "social": {
+      "tabs": {
+        "launches": "Launches",
+        "agent": "AI Copilot",
+        "media": "Media Library",
+        "analytics": "Analytics Dashboard",
+        "integrations": "Connected Accounts",
+        "feeds": "RSS Auto-Post",
+        "plugs": "Plugs & Webhooks"
+      },
+      "sidebar": {
+        "createPost": "Create Post",
+        "addChannel": "Add Channel",
+        "activeChannels": "Active Channels",
+        "connectedCount": "{count} connected",
+        "noChannels": "No channels connected yet"
+      },
+      "channelMenu": {
+        "createPost": "Create Post",
+        "copyChannelId": "Copy Channel ID",
+        "delete": "Delete"
+      },
+      "calendar": {
+        "title": "Calendar",
+        "today": "Today",
+        "day": "day",
+        "week": "week",
+        "month": "month",
+        "addPost": "Add Post",
+        "noPosts": "No posts scheduled"
+      },
+      "composer": {
+        "title": "Create Post",
+        "editTitle": "Edit Post",
+        "update": "Update Post",
+        "placeholder": "Write something...",
+        "insertMedia": "Insert Media",
+        "uploading": "Uploading...",
+        "insertMediaPrompt": "Insert media URL:",
+        "addComment": "Add comment / post (delayed first comment)",
+        "commentPlaceholder": "Comment text...",
+        "settings": "Settings",
+        "saveDraft": "Save as Draft",
+        "schedule": "Schedule Post",
+        "publishing": "Scheduling...",
+        "repeat": "Repeat: {interval}",
+        "deleteConfirm": "Delete this post? This can't be undone."
+      },
+      "connect": {
+        "title": "Configure Your Channel",
+        "help": "Pick a platform to connect. Platforms marked \"coming soon\" don't have a real integration wired up yet.",
+        "comingSoon": "coming soon",
+        "addAnother": "add another account",
+        "close": "Close",
+        "connectTitle": "Connect {name}",
+        "connecting": "Connecting...",
+        "connectCta": "Connect"
+      },
+      "integrationsTab": {
+        "title": "Connected Social Integrations",
+        "help": "Toggle connections to authorize scheduling for any of the 32 social platforms. Platforms without a real integration yet are marked \"coming soon\".",
+        "active": "Active",
+        "offline": "Offline",
+        "comingSoon": "Coming soon",
+        "connectedYes": "Connected: Yes",
+        "connectedNo": "Connected: No",
+        "disconnect": "Disconnect Account",
+        "authorize": "Authorize Client"
+      },
+      "feeds": {
+        "title": "RSS Auto-Post",
+        "help": "Kin watches a feed URL and automatically queues a new post per connected channel whenever it publishes something new.",
+        "addFeed": "Add Feed",
+        "newFeed": "New Auto-Post Feed",
+        "nameLabel": "Name",
+        "namePlaceholder": "e.g. Company blog",
+        "urlLabel": "Feed URL",
+        "urlPlaceholder": "https://example.com/feed.xml",
+        "channelsLabel": "Post to",
+        "generateLabel": "Rewrite content with AI before posting",
+        "save": "Add Feed",
+        "saving": "Saving...",
+        "empty": "No auto-post feeds yet.",
+        "active": "Active",
+        "paused": "Paused",
+        "deleteConfirm": "Delete the auto-post feed \"{title}\"?"
+      },
+      "analytics": {
+        "impressions": "Impressions",
+        "likes": "Likes",
+        "reposts": "Reposts",
+        "clicks": "Clicks",
+        "trendTitle": "Impressions Trend (Last 7 Days)",
+        "noData": "Not enough data yet — publish some posts to see a trend here."
+      },
+      "errors": {
+        "connectFailed": "Failed to connect {provider}",
+        "connectFailedGeneric": "Failed to connect account"
+      },
+      "webhooks": {
+        "title": "Outbound Webhook",
+        "help": "Kin will POST a JSON payload to this URL whenever a scheduled post is published or fails.",
+        "urlLabel": "Webhook URL",
+        "activeLabel": "Active",
+        "secretNotice": "Save this signing secret now — it won't be shown again. Verify it via the X-Kin-Signature header.",
+        "save": "Save Webhook",
+        "saving": "Saving...",
+        "docsTitle": "Payload format",
+        "docsBody": "Every delivery includes an X-Kin-Signature header (HMAC-SHA256 of the body using your secret) so you can verify it came from Kin."
+      }
+    },
+    "documents": {
+      "mimeLabels": {
+        "googleDoc": "Document Google",
+        "googleSheet": "Feuille de calcul Google",
+        "googleSlides": "Présentation Google",
+        "pdf": "PDF",
+        "wordDoc": "Document Word",
+        "text": "Texte",
+        "file": "Fichier"
+      },
+      "loadError": "Impossible de charger les documents",
+      "removeConfirm": "Supprimer \"{name}\" de l'index ? Le fichier dans Drive n'est pas modifié.",
+      "deleteFailed": "Échec de la suppression",
+      "bulkDeleteFailed": "Échec de la suppression en masse",
+      "bulkConfirmFailed": "Supprimer tous les documents échoués de l'index ? Les fichiers Drive ne sont pas modifiés.",
+      "bulkConfirmAll": "Supprimer TOUS les documents indexés de l'index ? Les fichiers Drive ne sont pas modifiés.",
+      "filterPlaceholder": "Filtrer par nom de fichier…",
+      "refresh": "Actualiser",
+      "deleteFailedBtn": "Échec de la suppression",
+      "wipeAll": "Tout effacer",
+      "indexFolder": "Indexer le dossier",
+      "stats": {
+        "indexed": "Indexé",
+        "pending": "En attente",
+        "chunks": "Morceaux"
+      },
+      "supportedTypes": {
+        "label": "Types de fichiers pris en charge :",
+        "body": "Google Docs · Google Sheets · Google Slides · PDF · DOCX · texte brut · Markdown · CSV. Les images et autres fichiers binaires sont ignorés. Intégration uniquement textuelle pour l'instant (multimodal à venir)."
+      },
+      "chunkCount": "{count, plural, one {# morceau} other {# morceaux}}",
+      "indexedRelative": "Indexé",
+      "openInDrive": "Ouvrir dans Drive",
+      "removeFromIndex": "Supprimer de l'index",
+      "status": {
+        "indexing": "Indexation…"
+      },
+      "emptyState": {
+        "noMatches": "Aucun document correspondant",
+        "noneYet": "Aucun document indexé pour l'instant",
+        "tryDifferent": "Essayez un filtre différent, ou indexez un nouveau dossier.",
+        "explainer": "Dirigez Kin vers un dossier Google Drive et il lira chaque Doc, Sheet, Slides, PDF et DOCX à l'intérieur — puis répondra aux questions basées sur ces fichiers.",
+        "indexFolder": "Indexer un dossier Drive"
+      },
+      "addDialog": {
+        "title": "Indexer un dossier",
+        "description": "Choisissez un fournisseur, puis collez une URL ou un ID de dossier. Kin indexera chaque fichier pris en charge à l'intérieur (Docs, Sheets, Slides, PDFs, DOCX, texte/CSV).",
+        "sourceLabel": "Source",
+        "connectGoogleHint": "Connectez Google à /dashboard/integrations pour activer Drive.",
+        "connectMicrosoftHint": "Connectez Microsoft à /dashboard/integrations pour activer OneDrive.",
+        "googleDrive": "Google Drive",
+        "oneDrive": "OneDrive",
+        "connectPrompt": "Connectez Google ou Microsoft à {link} avant d'indexer.",
+        "folderLabel": "URL ou ID du dossier",
+        "folderHintGoogle": "Exemple : https://drive.google.com/drive/folders/1abcXYZ…",
+        "folderHintMicrosoft": "Collez l'ID de l'élément du dossier OneDrive (clic droit → Détails → Chemin ou utilisez l'URL après /items/).",
+        "folderPlaceholderGoogle": "https://drive.google.com/drive/folders/…",
+        "folderPlaceholderMicrosoft": "01ABCDEFGHIJK...",
+        "maxFilesLabel": "Nombre maximal de fichiers à indexer",
+        "maxFilesHint": "Plus élevé = temps d'indexation plus long. Jusqu'à 200.",
+        "indexFailed": "Échec du démarrage de l'indexation",
+        "cancel": "Annuler",
+        "startIndexing": "Démarrer l'indexation"
+      }
+    },
+    "tasks": {
+      "status": {
+        "todo": "À faire",
+        "in_progress": "En cours",
+        "done": "Terminé"
+      },
+      "priority": {
+        "low": "Faible",
+        "medium": "Moyenne",
+        "high": "Élevée"
+      },
+      "sources": {
+        "kin": "Kin",
+        "google": "Google",
+        "microsoft": "Microsoft"
+      },
+      "all": "Tout",
+      "newTask": "Nouvelle tâche",
+      "noTasksYet": "Aucune tâche pour l'instant",
+      "noStatusTasks": "Aucune tâche {status}",
+      "emptyHint": "Ajoutez-en une manuellement ou demandez à Kin de la créer pour vous.",
+      "markStatus": "Marquer {status}",
+      "due": "Échéance le {date}",
+      "edit": "Modifier",
+      "delete": "Supprimer",
+      "deleteConfirm": "Supprimer \"{title}\" de Kin ?",
+      "dialog": {
+        "editTitle": "Modifier la tâche",
+        "newTitle": "Nouvelle tâche",
+        "description": "Les tâches sont visibles par Kin et informent les briefings.",
+        "titleLabel": "Titre",
+        "titlePlaceholder": "Payer la facture d'électricité",
+        "descriptionLabel": "Description (facultatif)",
+        "descriptionPlaceholder": "Plus de détails sur cette tâche…",
+        "statusLabel": "Statut",
+        "priorityLabel": "Priorité",
+        "dueDateLabel": "Date d'échéance",
+        "cancel": "Annuler",
+        "saveChanges": "Enregistrer les modifications",
+        "createTask": "Créer une tâche"
+      }
+    }
+  }
+}

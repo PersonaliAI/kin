@@ -1,0 +1,28 @@
+services:
+  backend:
+    build: ./backend
+    env_file:
+      - ./backend/.env
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    env_file:
+      - ./frontend/.env.local
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  voice-worker:
+    build: ./voice-worker
+    env_file:
+      - ./voice-worker/.env
+    depends_on:
+      - backend
+    restart: unless-stopped
+    profiles:
+      - voice

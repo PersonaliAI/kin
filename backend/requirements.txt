@@ -1,0 +1,51 @@
+fastapi
+uvicorn
+google-genai
+supabase
+python-dotenv
+httpx
+pydantic
+pytz
+PyJWT[crypto]
+python-multipart
+pypdf
+python-docx
+openpyxl
+# markitdown — Microsoft's document-to-Markdown converter. Stage 3 of the doc_rag
+# migration: primary text-extraction path for PDF/DOCX/XLSX uploads in
+# plugins/doc_rag.py, replacing the pypdf/python-docx/openpyxl extraction as the
+# first attempt (those libs stay installed above as a fallback safety net, and
+# pypdf is still used directly for PDF page-splitting ahead of Gemini OCR).
+# [all] pulls in mammoth (docx), pdfminer.six/pdfplumber (pdf), python-pptx,
+# xlrd, etc. — pinned to the version verified in this environment.
+markitdown[all]==0.1.7
+cryptography
+croniter
+PyYAML
+Pillow
+# secp256k1 Schnorr signing for the Nostr social provider — Nostr events must
+# be signed with BIP340 Schnorr sigs; there's no reasonable way to do this
+# without a real EC library, so this is a deliberate exception to "no new
+# core deps" for the social-provider framework.
+coincurve
+# Nostr's relay protocol (publishing an EVENT) is WebSocket-only — no HTTP
+# fallback exists in the spec — hence this second Nostr-only dependency.
+websockets
+openai
+anthropic
+# litellm — unified LLM-calling layer (app/core/llm.py). Stage 0 of a staged
+# migration off direct google-genai calls; existing google-genai/openai/anthropic
+# deps stay as-is for now, this is additive, not a cutover.
+litellm
+# LiveKit server SDK — used by livekit_control.py to dispatch the shared
+# kin-voice-worker agent and bridge outbound SIP calls. Not the full
+# livekit-agents framework (that only runs inside kin-voice-worker itself).
+livekit-api
+
+sentry-sdk[fastapi]
+
+# LangGraph — orchestration layer for graph_agent.py, the feature-flagged
+# (KIN_USE_LANGGRAPH) replacement for run_assistant's manual tool-calling
+# for-loop. Calls into the same _gemini_generate/agent_tools.execute
+# primitives; not a Gemini API replacement, so no langchain-google-genai here.
+langgraph
