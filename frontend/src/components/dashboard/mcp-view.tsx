@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogFooter, Field, inputCls } from "./dialog";
-import { mcpApi, type McpServer, BACKEND_URL } from "@/lib/backend";
+import { mcpApi, type McpServer, type McpTool, BACKEND_URL } from "@/lib/backend";
 
 export function McpView() {
   const t = useTranslations("dashboard.mcp");
@@ -393,7 +393,7 @@ export function McpView() {
                           </div>
                         ) : (
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {server.tools.map((tool: any, idx: number) => {
+                            {server.tools.map((tool: McpTool, idx: number) => {
                               const properties = tool.inputSchema?.properties || {};
                               const requiredFields = tool.inputSchema?.required || [];
 
@@ -419,7 +419,7 @@ export function McpView() {
                                         {t("parameters")}
                                       </span>
                                       <div className="flex flex-wrap gap-1.5">
-                                        {Object.entries(properties).map(([pName, pVal]: [string, any]) => {
+                                        {Object.entries(properties).map(([pName, pVal]) => {
                                           const isRequired = requiredFields.includes(pName);
                                           return (
                                             <span

@@ -454,10 +454,20 @@ export const integrations = {
     ),
   contacts: () =>
     api<{
-      kin: any[];
+      kin: KinContact[];
       external: GoogleContact[];
       connected: { google: boolean; microsoft: boolean };
     }>("/api/integrations/contacts"),
+};
+
+export type KinContact = {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  company: string | null;
+  notes: string | null;
+  updated_at: string | null;
 };
 
 // ---- Social scheduling (Postiz-equivalent) --------------------------------
@@ -918,13 +928,28 @@ export const documentsApi = {
 
 // ---- Model Context Protocol (MCP) -----------------------------------------
 
+export type McpToolProperty = {
+  type?: string;
+  description?: string;
+  [key: string]: unknown;
+};
+
+export type McpTool = {
+  name: string;
+  description?: string;
+  inputSchema?: {
+    properties?: Record<string, McpToolProperty>;
+    required?: string[];
+  };
+};
+
 export type McpServer = {
   id: string;
   user_id: string;
   name: string;
   url: string;
   headers: Record<string, string>;
-  tools: any[];
+  tools: McpTool[];
   oauth_flow_status: "none" | "awaiting_authorization" | "authorized";
   oauth_client_id?: string;
   oauth_client_secret?: string;
@@ -961,7 +986,7 @@ export const mcpApi = {
       }),
     }),
   test: (id: string) =>
-    api<{ status: string; tools: any[] }>(`/api/mcp/${id}/test`, {
+    api<{ status: string; tools: McpTool[] }>(`/api/mcp/${id}/test`, {
       method: "POST",
     }),
   delete: (id: string) =>

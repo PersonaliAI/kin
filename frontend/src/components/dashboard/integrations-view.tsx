@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -811,11 +811,29 @@ export function IntegrationsView({
   );
 }
 
+type IntegrationCatalogItem = {
+  slug: string;
+  name: string;
+  description?: string | null;
+  category?: string;
+  provider?: string;
+  connected?: boolean;
+  details?: string | null;
+  icon?: ReactNode;
+  isAccount?: boolean;
+  dashboardHref?: string;
+  dashboardLabel?: string;
+  openHref?: string;
+  openLabel?: string;
+  onConnect?: () => void;
+  onDisconnect?: () => void;
+};
+
 function IntegrationCard({
   item,
   busyKey,
 }: {
-  item: any;
+  item: IntegrationCatalogItem;
   busyKey: string | null;
 }) {
   const t = useTranslations("dashboard.integrations");
