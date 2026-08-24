@@ -44,6 +44,11 @@ jobs:
       - run: npm run lint
         continue-on-error: true
       - run: npm run build
+        env:
+          # Dummy values so build-time prerendering of pages that construct a
+          # Supabase client doesn't fail in CI, which has no real project.
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
 
   voice-worker:
     runs-on: ubuntu-latest
