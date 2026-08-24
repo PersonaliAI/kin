@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="frontend/public/logo.webp" alt="Kin" width="88" />
+<img src="frontend/public/logo.webp" alt="Kin" width="88" /> <img src="frontend/public/personaliai-icon.png" alt="PersonaliAI" width="88" />
 
 # Kin by PersonaliAI
 
