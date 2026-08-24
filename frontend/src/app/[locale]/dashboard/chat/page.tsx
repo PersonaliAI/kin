@@ -12,6 +12,12 @@ export default async function ChatPage({
   const { kin } = await getCurrentKinUser();
   const supabase = await createClient();
   const sp = await searchParams;
+
+  const { data: userRow } = await supabase
+    .from("users")
+    .select("preferred_provider, preferred_model")
+    .eq("id", kin.id)
+    .single();
   let sessionId: string = sp.s || "";
   if (!sessionId) {
     const { data: latest } = await supabase
@@ -47,6 +53,8 @@ export default async function ChatPage({
       initial={initial}
       initialSessionId={sessionId}
       voiceFirst={sp?.voice === "1"}
+      initialProvider={(userRow?.preferred_provider as string) ?? null}
+      initialModel={(userRow?.preferred_model as string) ?? null}
     />
   );
 }

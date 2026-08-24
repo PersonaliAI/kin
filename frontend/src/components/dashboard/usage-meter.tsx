@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { usageApi, type Usage } from "@/lib/backend";
 
 // Mirrors main.py's _fmt_tokens exactly — 1,000,000 -> "1M", 3,500,000 -> "3.5M".
-function formatTokens(n: number): string {
+export function formatTokens(n: number): string {
   if (n >= 1_000_000) {
     const v = n / 1_000_000;
     return `${v % 1 === 0 ? v.toFixed(0) : v.toFixed(1)}M`;

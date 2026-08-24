@@ -471,6 +471,29 @@
       "nearLimit": "Ti stai avvicinando al limite mensile. Valuta di fare l'upgrade per evitare interruzioni.",
       "atLimit": "Hai raggiunto il limite mensile. Fai l'upgrade per continuare a chattare."
     },
+    "usagePopup": {
+      "trigger": "Dettagli costo & token",
+      "title": "Utilizzo costo & token",
+      "description": "Come i tuoi messaggi stanno consumando token e costo del provider.",
+      "loading": "Caricamento dettagli utilizzo…",
+      "loadError": "Impossibile caricare i dettagli di utilizzo",
+      "thisMonth": "Questo mese",
+      "last7Days": "Ultimi 7 giorni",
+      "tokens": "token",
+      "byModel": "Per modello",
+      "byFeature": "Per funzionalità",
+      "noData": "Ancora nessun utilizzo per questo periodo.",
+      "callsCount": "{count, plural, one {# chiamata} other {# chiamate}}",
+      "unknownCostNote": "+{count, plural, one {# chiamata} other {# chiamate}} con costo non ancora disponibile"
+    },
+    "modelSelector": {
+      "trigger": "Modello",
+      "loading": "Caricamento modelli…",
+      "selectModel": "Seleziona un modello",
+      "yourKey": "la tua chiave",
+      "noKeyYet": "nessuna chiave ancora",
+      "addKeyHint": "Aggiungi prima la tua chiave {provider} nelle impostazioni"
+    },
     "accountManager": {
       "loading": "Caricamento del tuo account manager…",
       "heading": "Il tuo account manager",
@@ -1094,6 +1117,29 @@
         "title": "Preferenze di comunicazione",
         "sub": "Email di marketing. Sempre facoltative.",
         "toggle": "Inviami occasionalmente aggiornamenti e consigli sul prodotto."
+      },
+      "apiKeys": {
+        "title": "Chiavi API",
+        "sub": "Usa la tua chiave per utilizzare i modelli OpenAI, Anthropic o OpenRouter invece del Gemini integrato predefinito.",
+        "loading": "Caricamento delle tue chiavi…",
+        "loadError": "Impossibile caricare le tue chiavi API",
+        "noKeys": "Nessuna chiave aggiunta finora — Kin usa il modello Gemini integrato finché non ne aggiungi una.",
+        "addedAgo": "Aggiunta",
+        "addKey": "Aggiungi una chiave",
+        "keyPlaceholder": "Incolla la tua chiave API",
+        "save": "Salva chiave",
+        "saved": "Salvata",
+        "saveError": "Impossibile salvare questa chiave",
+        "remove": "Rimuovi",
+        "cancel": "Annulla",
+        "confirmRemove": "Sì, rimuovi",
+        "deleteError": "Impossibile rimuovere questa chiave",
+        "securityNote": "Le chiavi sono cifrate a riposo (Fernet/AES-256) e decifrate solo lato server al momento della richiesta. Non mostriamo mai di nuovo una chiave salvata.",
+        "providers": {
+          "openai": "OpenAI",
+          "anthropic": "Anthropic",
+          "openrouter": "OpenRouter"
+        }
       },
       "dangerZone": {
         "title": "Zona pericolosa",

@@ -2377,6 +2377,7 @@ from app.routers import chat  # noqa: E402
 from app.routers import documents  # noqa: E402
 from app.routers import email_triggers  # noqa: E402
 from app.routers import kin_webhooks  # noqa: E402
+from app.routers import llm_keys  # noqa: E402
 from app.routers import marketplace  # noqa: E402
 from app.routers import mcp  # noqa: E402
 from app.routers import memory  # noqa: E402
@@ -2393,6 +2394,7 @@ app.include_router(chat.router)
 app.include_router(documents.router)
 app.include_router(email_triggers.router)
 app.include_router(kin_webhooks.router)
+app.include_router(llm_keys.router)
 app.include_router(marketplace.router)
 app.include_router(mcp.router)
 app.include_router(memory.router)

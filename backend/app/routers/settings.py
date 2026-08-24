@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.clients import supabase
 from app.core.deps import require_user
+from app.core.llm_catalog import ALL_PROVIDERS as LLM_PROVIDERS
 from app.schemas.settings import FlowCredentialsSave, KinApiKeyCreate, SettingsPatch
 
 from main import PAID_PLANS, PRO_PLUS_PLANS, _credentials_fernet, _hash_api_key, _require_executive, plan_for
@@ -89,6 +90,11 @@ async def update_settings(patch: SettingsPatch, user: dict[str, Any] = Depends(r
         raise HTTPException(
             status_code=403,
             detail="Email follow-ups are a Basic+ feature. Upgrade at /dashboard/billing to enable them.",
+        )
+    if "preferred_provider" in payload and payload["preferred_provider"] not in LLM_PROVIDERS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown provider '{payload['preferred_provider']}'. Must be one of: {', '.join(sorted(LLM_PROVIDERS))}.",
         )
 
     if not payload:

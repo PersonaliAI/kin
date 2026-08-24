@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 import { sendChat, chatSessions, uploadDocument, flowCredentials, type ChatSession } from "@/lib/backend";
 import { Markdown } from "@/components/markdown";
 import { createClient } from "@/lib/supabase/client";
+import { ModelSelector } from "@/components/dashboard/model-selector";
 
 type Msg = {
   id: string;
@@ -76,10 +77,14 @@ export function ChatView({
   initial,
   initialSessionId,
   voiceFirst,
+  initialProvider,
+  initialModel,
 }: {
   initial: Msg[];
   initialSessionId: string;
   voiceFirst: boolean;
+  initialProvider?: string | null;
+  initialModel?: string | null;
 }) {
   const t = useTranslations("dashboard.chat");
   const [messages, setMessages] = useState<Msg[]>(initial);
@@ -506,6 +511,7 @@ export function ChatView({
 
           <div className="flex items-center gap-3">
             {loadingHistory && <Loader2 className="size-4 animate-spin text-primary" />}
+            <ModelSelector initialProvider={initialProvider} initialModel={initialModel} />
             <Button
               variant="default"
               size="sm"

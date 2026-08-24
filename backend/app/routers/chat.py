@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 from fastapi import (
@@ -17,15 +17,22 @@ from fastapi import (
 
 from plugins import memory as mem
 
+from app.core import llm as core_llm
 from app.core.clients import genai_client, supabase
 from app.core.deps import require_user
+from app.core.llm_catalog import BYOK_PROVIDERS, DEFAULT_MODELS
 from app.schemas.chat import ChatResponse, KinApiMessageRequest
 
 from main import (
     EXECUTIVE_ONLY,
     PAID_PLANS,
+    _credentials_fernet,
     _fmt_tokens,
     _hash_api_key,
+    _load_history,
+    _month_start_iso,
+    _persist,
+    _system_prompt_for,
     get_monthly_token_usage,
     plan_for,
     quota_state,
@@ -33,6 +40,82 @@ from main import (
 )
 
 router = APIRouter()
+
+_BYOK_SLUG_PREFIX = "llm:"
+
+
+async def _byok_chat_reply(
+    *, user: dict[str, Any], provider: str, preferred_model: Optional[str], text: str, session_id: str,
+) -> str:
+    """Plain-text completion via a customer-supplied key, bypassing
+    run_assistant's Gemini-only tool-calling loop entirely.
+
+    Known limitation: no tool-calling (lead capture, calendar, Gmail,
+    memory-write tools, etc.) on this path — BYOK providers' function-call
+    schemas differ enough from Gemini's that wiring them in is a separate,
+    larger effort (see plugins/llm_providers.py's module docstring). RAG
+    (semantic memory retrieval) and rolling-history-summary injection are
+    reused as-is from main.py's _system_prompt_for/mem.retrieve, so the
+    BYOK reply is still knowledge-base-grounded, just without tools.
+    """
+    key_res = (
+        supabase.table("user_credentials")
+        .select("encrypted_payload")
+        .eq("user_id", user["id"])
+        .eq("integration_slug", f"{_BYOK_SLUG_PREFIX}{provider}")
+        .execute()
+    )
+    if not key_res.data:
+        raise HTTPException(
+            status_code=400,
+            detail=f"No API key saved for {provider}. Add one in Settings, or switch back to Gemini.",
+        )
+    raw_payload = key_res.data[0]["encrypted_payload"]
+    # Supabase returns bytea as a hex string prefixed with "\x" (postgres
+    # hex-encoded bytea representation) — same convention save_flow_credentials
+    # writes it in.
+    if isinstance(raw_payload, str):
+        hex_str = raw_payload[2:] if raw_payload.startswith("\\x") else raw_payload
+        ciphertext = bytes.fromhex(hex_str)
+    else:
+        ciphertext = bytes(raw_payload)
+    try:
+        api_key = _credentials_fernet().decrypt(ciphertext).decode()
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=500,
+            detail=f"Stored API key for {provider} could not be decrypted. Please re-save it in Settings.",
+        ) from exc
+
+    memory_snippet = ""
+    if user.get("memory_enabled", True) and text and len(text.strip()) >= 8:
+        try:
+            mems = mem.retrieve(supabase, genai_client, user_id=user["id"], query=text)
+            memory_snippet = mem.format_for_prompt(mems)
+        except Exception:  # noqa: BLE001 — never let memory retrieval break the turn
+            pass
+
+    system_prompt = _system_prompt_for(user, memory_snippet=memory_snippet)
+
+    history = _load_history(user["id"], "web", session_id)
+    messages: list[dict[str, str]] = [{"role": "system", "content": system_prompt}]
+    for row in history[:-1]:  # exclude the just-persisted current user message
+        raw = (row.get("content") or "").strip()
+        if not raw or raw == "[voice message]":
+            continue
+        messages.append({"role": "user" if row["role"] == "user" else "assistant", "content": raw})
+    messages.append({"role": "user", "content": text})
+
+    model = preferred_model or DEFAULT_MODELS.get(provider, "")
+    result = await core_llm.complete(
+        model=f"{provider}/{model}",
+        messages=messages,
+        max_tokens=2048,
+        api_key=api_key,
+        feature="chat_byok",
+        user_id=user["id"],
+    )
+    return result.text
 
 
 @router.post("/api/chat", response_model=ChatResponse)
@@ -69,20 +152,55 @@ async def web_chat(
         )
 
     sid = session_id or f"web-{user['id']}"
-    try:
-        result = await run_assistant(
-            user=user,
-            text=text,
-            audio_bytes=audio_bytes,
-            audio_mime=audio_mime,
-            source="web",
-            session_id=sid,
-        )
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=502, detail=f"assistant failed: {exc}") from exc
 
-    reply = result["reply"]
-    thinking = result.get("thinking") or None
+    pref_res = (
+        supabase.table("users")
+        .select("preferred_provider, preferred_model")
+        .eq("id", user["id"])
+        .single()
+        .execute()
+    )
+    preferred_provider = (pref_res.data or {}).get("preferred_provider") or "gemini"
+    preferred_model = (pref_res.data or {}).get("preferred_model")
+
+    thinking: Optional[str] = None
+    if preferred_provider in BYOK_PROVIDERS:
+        if audio_bytes:
+            raise HTTPException(
+                status_code=400,
+                detail="Voice messages aren't supported with a BYOK provider yet — switch to Gemini to send audio.",
+            )
+        started = time.monotonic()
+        _persist(user_id=user["id"], role="user", content=text, source="web", session_id=sid)
+        try:
+            reply = await _byok_chat_reply(
+                user=user, provider=preferred_provider, preferred_model=preferred_model,
+                text=text, session_id=sid,
+            )
+        except HTTPException:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=502, detail=f"assistant failed: {exc}") from exc
+        _persist(
+            user_id=user["id"], role="assistant", content=reply, source="web", session_id=sid,
+            latency_ms=int((time.monotonic() - started) * 1000),
+            model=f"{preferred_provider}/{preferred_model or DEFAULT_MODELS.get(preferred_provider, '')}",
+        )
+    else:
+        try:
+            result = await run_assistant(
+                user=user,
+                text=text,
+                audio_bytes=audio_bytes,
+                audio_mime=audio_mime,
+                source="web",
+                session_id=sid,
+            )
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=502, detail=f"assistant failed: {exc}") from exc
+
+        reply = result["reply"]
+        thinking = result.get("thinking") or None
 
     # Extract & store memories in the background — doesn't block the reply.
     if text:
@@ -117,6 +235,71 @@ async def usage(user: dict[str, Any] = Depends(require_user)):
         "remaining": max(0, limit - used),
         "resets_at": reset.isoformat(),
         "tokens": get_monthly_token_usage(user["id"]),
+    }
+
+
+def _aggregate_llm_calls(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    total_cost = 0.0
+    total_tokens = 0
+    unknown_cost_calls = 0
+    by_model: dict[tuple[str, str], dict[str, Any]] = {}
+    by_feature: dict[str, dict[str, Any]] = {}
+
+    for row in rows:
+        tokens = row.get("total_tokens") or 0
+        cost = row.get("cost_usd")
+        total_tokens += tokens
+        if cost is None:
+            unknown_cost_calls += 1
+        else:
+            total_cost += cost
+
+        model_key = (row.get("provider") or "unknown", row.get("model") or "unknown")
+        m = by_model.setdefault(model_key, {"provider": model_key[0], "model": model_key[1], "cost_usd": 0.0, "tokens": 0, "calls": 0})
+        m["cost_usd"] += cost or 0.0
+        m["tokens"] += tokens
+        m["calls"] += 1
+
+        feature_key = row.get("feature") or "unknown"
+        f = by_feature.setdefault(feature_key, {"feature": feature_key, "cost_usd": 0.0, "tokens": 0, "calls": 0})
+        f["cost_usd"] += cost or 0.0
+        f["tokens"] += tokens
+        f["calls"] += 1
+
+    return {
+        "total_cost_usd": round(total_cost, 6),
+        "total_tokens": total_tokens,
+        "unknown_cost_calls": unknown_cost_calls,
+        "by_model": sorted(by_model.values(), key=lambda r: r["cost_usd"], reverse=True),
+        "by_feature": sorted(by_feature.values(), key=lambda r: r["cost_usd"], reverse=True),
+    }
+
+
+@router.get("/api/usage/llm")
+async def usage_llm(user: dict[str, Any] = Depends(require_user)):
+    """Cost/token breakdown for the usage popup — sourced from the llm_calls
+    ledger (app/core/llm.py writes one row per call), unlike GET /api/usage
+    which reads token totals off the messages table for the quota gate."""
+    month_start = _month_start_iso()
+    week_start = (datetime.now(tz=timezone.utc) - timedelta(days=7)).isoformat()
+
+    month_res = (
+        supabase.table("llm_calls")
+        .select("provider, model, feature, total_tokens, cost_usd")
+        .eq("user_id", user["id"])
+        .gte("created_at", month_start)
+        .execute()
+    )
+    week_res = (
+        supabase.table("llm_calls")
+        .select("provider, model, feature, total_tokens, cost_usd")
+        .eq("user_id", user["id"])
+        .gte("created_at", week_start)
+        .execute()
+    )
+    return {
+        "month": _aggregate_llm_calls(month_res.data or []),
+        "last_7_days": _aggregate_llm_calls(week_res.data or []),
     }
 
 

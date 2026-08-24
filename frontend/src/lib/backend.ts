@@ -650,6 +650,8 @@ export const settings = {
     email_signature_title?: string;
     email_signature_phone?: string;
     email_signature_links?: SignatureLink[];
+    preferred_provider?: string;
+    preferred_model?: string | null;
   }) =>
     api<{ status: string }>("/api/settings", {
       method: "PATCH",
@@ -1140,4 +1142,65 @@ export const scheduleApi = {
       `/api/schedule/${id}/test`,
       { method: "POST" },
     ),
+};
+
+// ---- LLM providers / models / BYOK keys / usage ---------------------------
+
+export type LlmModel = { id: string; label: string };
+
+export type LlmProvider = {
+  id: string;
+  label: string;
+  byok_required: boolean;
+  has_key: boolean;
+  models: LlmModel[];
+};
+
+export const llmModelsApi = {
+  list: () => api<{ providers: LlmProvider[] }>("/api/llm-models"),
+};
+
+export type LlmKey = { provider: string; updated_at: string };
+
+export const llmKeysApi = {
+  list: () => api<{ keys: LlmKey[] }>("/api/llm-keys"),
+  save: (provider: string, apiKey: string) =>
+    api<{ status: string }>("/api/llm-keys", {
+      method: "POST",
+      body: JSON.stringify({ provider, api_key: apiKey }),
+    }),
+  delete: (provider: string) =>
+    api<{ status: string }>(`/api/llm-keys/${provider}`, { method: "DELETE" }),
+};
+
+export type LlmUsageByModel = {
+  provider: string;
+  model: string;
+  cost_usd: number;
+  tokens: number;
+  calls: number;
+};
+
+export type LlmUsageByFeature = {
+  feature: string;
+  cost_usd: number;
+  tokens: number;
+  calls: number;
+};
+
+export type LlmUsagePeriod = {
+  total_cost_usd: number;
+  total_tokens: number;
+  unknown_cost_calls: number;
+  by_model: LlmUsageByModel[];
+  by_feature: LlmUsageByFeature[];
+};
+
+export type LlmUsage = {
+  month: LlmUsagePeriod;
+  last_7_days: LlmUsagePeriod;
+};
+
+export const llmUsageApi = {
+  current: () => api<LlmUsage>("/api/usage/llm"),
 };

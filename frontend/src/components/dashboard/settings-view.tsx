@@ -3,16 +3,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
-import { Loader2, AlertCircle, CheckCircle2, Trash2, Sparkles, Plus, X } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle2, Trash2, Sparkles, Plus, X, KeyRound, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, inputCls, textareaCls } from "@/components/dashboard/dialog";
 import { SearchSelect, type SelectOption } from "@/components/ui/select";
+import { LocalTime } from "@/components/local-time";
 import {
   settings,
   exportMyData,
   promptTuningApi,
+  llmKeysApi,
   type PromptTuningStatus,
   type SignatureLink,
+  type LlmKey,
 } from "@/lib/backend";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -518,6 +521,13 @@ export function SettingsView({
       </Section>
 
       <Section
+        title={t("apiKeys.title")}
+        sub={t("apiKeys.sub")}
+      >
+        <ApiKeysSection />
+      </Section>
+
+      <Section
         title={t("dangerZone.title")}
         sub={t("dangerZone.sub")}
         danger
@@ -632,6 +642,189 @@ function Section({
       {!sub && <div className="mb-4" />}
       {children}
     </section>
+  );
+}
+
+const BYOK_PROVIDERS = ["openai", "anthropic", "openrouter"] as const;
+
+function ApiKeysSection() {
+  const t = useTranslations("dashboard.apiKeys");
+  const [keys, setKeys] = useState<LlmKey[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [provider, setProvider] = useState<(typeof BYOK_PROVIDERS)[number]>("openai");
+  const [apiKey, setApiKey] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [justSaved, setJustSaved] = useState(false);
+  const [confirmDeleteProvider, setConfirmDeleteProvider] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    setLoadError(null);
+    llmKeysApi
+      .list()
+      .then((res) => setKeys(res.keys))
+      .catch((e) => setLoadError(e instanceof Error ? e.message : t("loadError")))
+      .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    if (!apiKey.trim()) return;
+    setSaving(true);
+    setSaveError(null);
+    setJustSaved(false);
+    try {
+      await llmKeysApi.save(provider, apiKey.trim());
+      setApiKey("");
+      setJustSaved(true);
+      setTimeout(() => setJustSaved(false), 2500);
+      load();
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : t("saveError"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(p: string) {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await llmKeysApi.delete(p);
+      setKeys((prev) => prev.filter((k) => k.provider !== p));
+      setConfirmDeleteProvider(null);
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : t("deleteError"));
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {loading ? (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 className="size-3.5 animate-spin" />
+          {t("loading")}
+        </div>
+      ) : loadError ? (
+        <p className="text-xs text-destructive">{loadError}</p>
+      ) : keys.length === 0 ? (
+        <p className="text-xs text-muted-foreground">{t("noKeys")}</p>
+      ) : (
+        <div className="rounded-lg border border-border divide-y divide-border overflow-hidden">
+          {keys.map((k) => (
+            <div key={k.provider} className="flex items-center justify-between gap-3 px-3 py-2.5">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="size-7 rounded-md bg-muted grid place-items-center shrink-0">
+                  <KeyRound className="size-3.5 text-muted-foreground" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-medium">{t(`providers.${k.provider}`)}</div>
+                  <div className="text-[10px] text-muted-foreground">
+                    {t("addedAgo")} <LocalTime iso={k.updated_at} mode="relative" />
+                  </div>
+                </div>
+              </div>
+              {confirmDeleteProvider === k.provider ? (
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="cursor-pointer h-7 px-2 text-xs"
+                    onClick={() => setConfirmDeleteProvider(null)}
+                    disabled={deleting}
+                  >
+                    {t("cancel")}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="cursor-pointer h-7 px-2 text-xs bg-destructive/10 text-destructive border border-destructive/30 hover:bg-destructive/20"
+                    onClick={() => handleDelete(k.provider)}
+                    disabled={deleting}
+                  >
+                    {deleting && <Loader2 className="size-3 animate-spin" />}
+                    {t("confirmRemove")}
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="cursor-pointer h-7 px-2 text-xs text-destructive border-destructive/30 hover:bg-destructive/5 shrink-0"
+                  onClick={() => setConfirmDeleteProvider(k.provider)}
+                >
+                  <Trash2 className="size-3" />
+                  {t("remove")}
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      {deleteError && <p className="text-xs text-destructive">{deleteError}</p>}
+
+      <form onSubmit={handleSave} className="rounded-lg border border-border p-3 space-y-2.5">
+        <p className="text-xs font-medium text-foreground/80">{t("addKey")}</p>
+        <div className="grid grid-cols-1 sm:grid-cols-[140px_1fr] gap-2">
+          <select
+            value={provider}
+            onChange={(e) => setProvider(e.target.value as (typeof BYOK_PROVIDERS)[number])}
+            disabled={saving}
+            className={inputCls}
+          >
+            {BYOK_PROVIDERS.map((p) => (
+              <option key={p} value={p}>
+                {t(`providers.${p}`)}
+              </option>
+            ))}
+          </select>
+          <input
+            type="password"
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            placeholder={t("keyPlaceholder")}
+            disabled={saving}
+            autoComplete="off"
+            className={inputCls}
+          />
+        </div>
+        {saveError && <p className="text-[11px] text-destructive">{saveError}</p>}
+        <div className="flex items-center gap-2">
+          <Button
+            type="submit"
+            size="sm"
+            disabled={saving || !apiKey.trim()}
+            className="cursor-pointer"
+          >
+            {saving && <Loader2 className="size-3.5 animate-spin" />}
+            {t("save")}
+          </Button>
+          {justSaved && (
+            <span className="flex items-center gap-1 text-xs text-emerald-700">
+              <CheckCircle2 className="size-3.5" /> {t("saved")}
+            </span>
+          )}
+        </div>
+      </form>
+
+      <p className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
+        <ShieldCheck className="size-3.5 mt-0.5 shrink-0" />
+        {t("securityNote")}
+      </p>
+    </div>
   );
 }
 

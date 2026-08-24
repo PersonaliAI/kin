@@ -30,6 +30,8 @@ class SettingsPatch(BaseModel):
     email_signature_title: Optional[str] = None
     email_signature_phone: Optional[str] = None
     email_signature_links: Optional[list[SignatureLink]] = None
+    preferred_provider: Optional[str] = None
+    preferred_model: Optional[str] = None
 
 
 class FlowCredentialsSave(BaseModel):

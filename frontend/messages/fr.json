@@ -471,6 +471,29 @@
       "nearLimit": "Vous approchez de votre limite mensuelle. Envisagez de passer à un forfait supérieur pour éviter les interruptions.",
       "atLimit": "Vous avez atteint votre limite mensuelle. Passez à un forfait supérieur pour continuer à discuter."
     },
+    "usagePopup": {
+      "trigger": "Détails coût & jetons",
+      "title": "Utilisation coût & jetons",
+      "description": "Comment vos messages consomment des jetons et du coût fournisseur.",
+      "loading": "Chargement des détails d'utilisation…",
+      "loadError": "Impossible de charger les détails d'utilisation",
+      "thisMonth": "Ce mois-ci",
+      "last7Days": "7 derniers jours",
+      "tokens": "jetons",
+      "byModel": "Par modèle",
+      "byFeature": "Par fonctionnalité",
+      "noData": "Pas encore d'utilisation pour cette période.",
+      "callsCount": "{count, plural, one {# appel} other {# appels}}",
+      "unknownCostNote": "+{count, plural, one {# appel} other {# appels}} dont le coût n'est pas encore disponible"
+    },
+    "modelSelector": {
+      "trigger": "Modèle",
+      "loading": "Chargement des modèles…",
+      "selectModel": "Choisir un modèle",
+      "yourKey": "votre clé",
+      "noKeyYet": "pas encore de clé",
+      "addKeyHint": "Ajoutez d'abord votre clé {provider} dans les paramètres"
+    },
     "accountManager": {
       "loading": "Chargement de votre gestionnaire de compte…",
       "heading": "Votre gestionnaire de compte",
@@ -1094,6 +1117,29 @@
         "title": "Préférences de communication",
         "sub": "E-mails marketing. Toujours facultatif.",
         "toggle": "M'envoyer des mises à jour de produits et des conseils occasionnels."
+      },
+      "apiKeys": {
+        "title": "Clés API",
+        "sub": "Utilisez votre propre clé pour accéder aux modèles OpenAI, Anthropic ou OpenRouter au lieu du Gemini intégré par défaut.",
+        "loading": "Chargement de vos clés…",
+        "loadError": "Impossible de charger vos clés API",
+        "noKeys": "Aucune clé ajoutée pour l'instant — Kin utilise le modèle Gemini intégré tant que vous n'en ajoutez pas.",
+        "addedAgo": "Ajoutée",
+        "addKey": "Ajouter une clé",
+        "keyPlaceholder": "Collez votre clé API",
+        "save": "Enregistrer la clé",
+        "saved": "Enregistrée",
+        "saveError": "Impossible d'enregistrer cette clé",
+        "remove": "Retirer",
+        "cancel": "Annuler",
+        "confirmRemove": "Oui, retirer",
+        "deleteError": "Impossible de retirer cette clé",
+        "securityNote": "Les clés sont chiffrées au repos (Fernet/AES-256) et déchiffrées uniquement côté serveur au moment de la requête. Nous n'affichons jamais une clé enregistrée.",
+        "providers": {
+          "openai": "OpenAI",
+          "anthropic": "Anthropic",
+          "openrouter": "OpenRouter"
+        }
       },
       "dangerZone": {
         "title": "Zone de danger",

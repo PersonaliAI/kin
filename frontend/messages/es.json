@@ -471,6 +471,29 @@
       "nearLimit": "Estás cerca de tu límite mensual. Considera actualizar para evitar interrupciones.",
       "atLimit": "Has alcanzado tu límite mensual. Actualiza para seguir chateando."
     },
+    "usagePopup": {
+      "trigger": "Detalles de coste y tokens",
+      "title": "Uso de coste y tokens",
+      "description": "Cómo tus mensajes están consumiendo tokens y coste del proveedor.",
+      "loading": "Cargando detalles de uso…",
+      "loadError": "No se pudieron cargar los detalles de uso",
+      "thisMonth": "Este mes",
+      "last7Days": "Últimos 7 días",
+      "tokens": "tokens",
+      "byModel": "Por modelo",
+      "byFeature": "Por función",
+      "noData": "Aún no hay uso en este período.",
+      "callsCount": "{count, plural, one {# llamada} other {# llamadas}}",
+      "unknownCostNote": "+{count, plural, one {# llamada} other {# llamadas}} con coste aún no disponible"
+    },
+    "modelSelector": {
+      "trigger": "Modelo",
+      "loading": "Cargando modelos…",
+      "selectModel": "Selecciona un modelo",
+      "yourKey": "tu clave",
+      "noKeyYet": "sin clave todavía",
+      "addKeyHint": "Añade tu clave de {provider} en Ajustes primero"
+    },
     "accountManager": {
       "loading": "Cargando tu gestor de cuentas…",
       "heading": "Tu gestor de cuentas",
@@ -1377,6 +1400,29 @@
         "title": "Preferencias de comunicación",
         "sub": "Correos de marketing. Siempre opcional.",
         "toggle": "Envíame actualizaciones y consejos ocasionales sobre el producto."
+      },
+      "apiKeys": {
+        "title": "Claves de API",
+        "sub": "Usa tu propia clave para usar modelos de OpenAI, Anthropic u OpenRouter en lugar del Gemini integrado por defecto.",
+        "loading": "Cargando tus claves…",
+        "loadError": "No se pudieron cargar tus claves de API",
+        "noKeys": "Aún no has añadido ninguna clave — Kin usa el modelo Gemini integrado hasta que añadas una.",
+        "addedAgo": "Añadida",
+        "addKey": "Añadir una clave",
+        "keyPlaceholder": "Pega tu clave de API",
+        "save": "Guardar clave",
+        "saved": "Guardada",
+        "saveError": "No se pudo guardar esa clave",
+        "remove": "Eliminar",
+        "cancel": "Cancelar",
+        "confirmRemove": "Sí, eliminar",
+        "deleteError": "No se pudo eliminar esa clave",
+        "securityNote": "Las claves se cifran en reposo (Fernet/AES-256) y solo se descifran en el servidor al procesar la solicitud. Nunca volvemos a mostrar una clave guardada.",
+        "providers": {
+          "openai": "OpenAI",
+          "anthropic": "Anthropic",
+          "openrouter": "OpenRouter"
+        }
       },
       "dangerZone": {
         "title": "Zona de riesgo",

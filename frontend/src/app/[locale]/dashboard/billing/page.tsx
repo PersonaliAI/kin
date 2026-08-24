@@ -4,6 +4,7 @@ import { CheckCircle2, ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UpgradeButton } from "@/components/dashboard/upgrade-modal";
 import { UsageMeter } from "@/components/dashboard/usage-meter";
+import { UsageDetailsButton } from "@/components/dashboard/usage-popup";
 import { AccountManagerCard } from "@/components/dashboard/account-manager-card";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentKinUser } from "@/lib/user";
@@ -38,6 +39,9 @@ export default async function BillingPage() {
     <main className="flex-1 overflow-y-auto overflow-x-hidden">
       <div className="p-5 md:p-8 max-w-3xl w-full mx-auto space-y-5">
         <UsageMeter />
+        <div className="flex justify-end -mt-2">
+          <UsageDetailsButton />
+        </div>
 
         <div className="rounded-xl border border-border bg-card p-5">
           <div className="flex items-start justify-between gap-4">

@@ -471,6 +471,29 @@
       "nearLimit": "You're close to your monthly limit. Consider upgrading to avoid interruptions.",
       "atLimit": "You've hit your monthly limit. Upgrade to keep chatting."
     },
+    "usagePopup": {
+      "trigger": "Cost & token details",
+      "title": "Cost & token usage",
+      "description": "How your messages are spending tokens and provider cost.",
+      "loading": "Loading usage details…",
+      "loadError": "Could not load usage details",
+      "thisMonth": "This month",
+      "last7Days": "Last 7 days",
+      "tokens": "tokens",
+      "byModel": "By model",
+      "byFeature": "By feature",
+      "noData": "No usage yet for this period.",
+      "callsCount": "{count, plural, one {# call} other {# calls}}",
+      "unknownCostNote": "+{count, plural, one {# call} other {# calls}} with cost not yet available"
+    },
+    "modelSelector": {
+      "trigger": "Model",
+      "loading": "Loading models…",
+      "selectModel": "Select a model",
+      "yourKey": "your key",
+      "noKeyYet": "no key yet",
+      "addKeyHint": "Add your {provider} key in Settings first"
+    },
     "accountManager": {
       "loading": "Loading your account manager…",
       "heading": "Your account manager",
@@ -1094,6 +1117,29 @@
         "title": "Communication preferences",
         "sub": "Marketing emails. Always optional.",
         "toggle": "Send me occasional product updates and tips."
+      },
+      "apiKeys": {
+        "title": "API keys",
+        "sub": "Bring your own key to use OpenAI, Anthropic, or OpenRouter models instead of the built-in Gemini default.",
+        "loading": "Loading your keys…",
+        "loadError": "Could not load your API keys",
+        "noKeys": "No keys added yet — Kin uses the built-in Gemini model until you add one.",
+        "addedAgo": "Added",
+        "addKey": "Add a key",
+        "keyPlaceholder": "Paste your API key",
+        "save": "Save key",
+        "saved": "Saved",
+        "saveError": "Could not save that key",
+        "remove": "Remove",
+        "cancel": "Cancel",
+        "confirmRemove": "Yes, remove",
+        "deleteError": "Could not remove that key",
+        "securityNote": "Keys are encrypted at rest (Fernet/AES-256) and only decrypted server-side at request time. We never display a saved key again.",
+        "providers": {
+          "openai": "OpenAI",
+          "anthropic": "Anthropic",
+          "openrouter": "OpenRouter"
+        }
       },
       "dangerZone": {
         "title": "Danger zone",
