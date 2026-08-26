@@ -62,11 +62,8 @@ from app.core.config import (
     ALLOWED_ORIGINS,
     FRONTEND_URL,
     FUNCTION_SECRET,
-    LEMON_API_KEY,
-    LEMON_STORE_ID,
-    LEMON_VARIANT_TO_PLAN,
-    LEMON_WEBHOOK_SECRET,
     MODEL_NAME,
+    OAUTH_STATE_SECRET,
 )
 from app.core.deps import get_user_by_auth_id, require_user, verify_supabase_jwt
 from app.core.llm import complete as llm_complete
@@ -637,19 +634,26 @@ SENSITIVE_WRITE_TOOLS = frozenset({
 # ---------------------------------------------------------------------------
 
 PLAN_QUOTAS: dict[str, int] = {
-    # Kept for plan_for()'s key-membership check and for
-    # chatty_quota_exceeded()'s combined Kin+Chatty message count (an edge
-    # case: a single account that's both a Kin subscriber and a Chatty bot
-    # owner) — Kin's own quota gate uses KIN_TOKEN_QUOTAS below instead;
-    # these numbers are not enforced anywhere for Kin's own chat/API.
+    # Kept for plan_for()'s key-membership check (and because the
+    # users_plan_check DB constraint — 20260719000000_chatty_billing_plans.sql
+    # — still allows the chatty_* values below, so an existing row with one
+    # of those must still validate here even though the message-count quota
+    # itself is not enforced anywhere for Kin's own chat/API; Kin's own
+    # quota gate uses KIN_TOKEN_QUOTAS below instead). The Chatty widget
+    # product these chatty_* tiers were for was never actually built (no
+    # /api/widget/* route exists anywhere in this codebase — see the
+    # app_factory.py Widget-tag cleanup) — chatty_quota_exceeded() and
+    # get_chatty_monthly_usage(), which used to reference this dict for
+    # that product, were removed as dead code during security-audit
+    # remediation. Left here rather than removed outright since the DB
+    # constraint and plan_for()'s fallback logic still depend on these keys
+    # existing for any account that already has one of these plan values.
     "free": 100,
     "basic": 500,
     "pro": 3000,
     "executive": 15000,
     # Chatty-specific tiers — quotas match what's advertised on chatty's own
     # pricing page (src/app/page.tsx): $19/$99/$399 for 1k/10k/40k msgs/mo.
-    # Chatty still bills by message count — token tracking doesn't exist yet
-    # for its separate widget conversation pipeline (run_widget_assistant).
     "chatty_hobby": 1000,
     "chatty_standard": 10000,
     "chatty_business": 40000,
@@ -698,25 +702,6 @@ def _month_start_iso() -> str:
     return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
 
 
-def get_monthly_usage(user_id: str) -> int:
-    """Count user-role messages persisted since the first of the current
-    month. No longer used for Kin's own quota gate (see quota_state) —
-    kept for chatty_quota_exceeded()'s combined Kin+Chatty message count."""
-    try:
-        res = (
-            supabase.table("messages")
-            .select("id", count="exact", head=True)
-            .eq("user_id", user_id)
-            .eq("role", "user")
-            .gte("created_at", _month_start_iso())
-            .execute()
-        )
-        return res.count or 0
-    except Exception:  # noqa: BLE001
-        logger.exception("usage count failed")
-        return 0
-
-
 def plan_for(user: dict[str, Any]) -> str:
     plan = (user.get("plan") or "free").lower()
     return plan if plan in PLAN_QUOTAS else "free"
@@ -739,39 +724,6 @@ def quota_state(user: dict[str, Any]) -> tuple[int, int]:
     directly) rather than raising."""
     limit = KIN_TOKEN_QUOTAS.get(plan_for(user), KIN_TOKEN_QUOTAS["free"])
     return get_monthly_token_usage(user["id"])["total_tokens"], limit
-
-
-def get_chatty_monthly_usage(owner_auth_id: str) -> int:
-    """Count visitor (user-role) messages across ALL of an owner's Chatty bots
-    since the first of the current month. Widget LLM calls are billed to the
-    bot owner, so they must count against the same monthly plan quota."""
-    try:
-        bots = supabase.table("chatty_bots").select("id").eq("user_id", owner_auth_id).execute()
-        bot_ids = [b["id"] for b in (bots.data or [])]
-        if not bot_ids:
-            return 0
-        res = (
-            supabase.table("chatty_conversations")
-            .select("id", count="exact", head=True)
-            .in_("bot_id", bot_ids)
-            .eq("role", "user")
-            .gte("created_at", _month_start_iso())
-            .execute()
-        )
-        return res.count or 0
-    except Exception:  # noqa: BLE001
-        logger.exception("chatty usage count failed")
-        return 0
-
-
-def chatty_quota_exceeded(owner_user: dict[str, Any], owner_auth_id: str) -> bool:
-    """True when the bot owner has used up their monthly message allowance
-    (Kin web messages + Chatty widget messages combined)."""
-    limit = PLAN_QUOTAS[plan_for(owner_user)]
-    if limit <= 0:  # 0 == unlimited
-        return False
-    used = get_monthly_usage(owner_user["id"]) + get_chatty_monthly_usage(owner_auth_id)
-    return used >= limit
 
 
 def _sanitize_contents(raw_contents: list) -> list:
@@ -1937,13 +1889,42 @@ def _finalize(
 # ---------------------------------------------------------------------------
 
 
+_oauth_state_secret_warned = False
+
+
+def _oauth_state_secret() -> str:
+    """OAUTH_STATE_SECRET if set; otherwise FUNCTION_SECRET, logged once.
+
+    Decouples OAuth-state JWT signing from FUNCTION_SECRET (which also
+    gates /cron/*, /admin/*, /internal/*, and doubles as the Telegram
+    webhook query secret) — added during security-audit remediation so a
+    leak of one doesn't compromise the other. Falls back so nothing breaks
+    before OAUTH_STATE_SECRET is actually set in the deploy config.
+    """
+    global _oauth_state_secret_warned
+    if OAUTH_STATE_SECRET:
+        return OAUTH_STATE_SECRET
+    if not _oauth_state_secret_warned:
+        logger.warning(
+            "OAUTH_STATE_SECRET is not set — falling back to FUNCTION_SECRET "
+            "for OAuth-state JWT signing. Set OAUTH_STATE_SECRET to a real "
+            "random value to decouple OAuth-state signing from the "
+            "cron/admin/internal/Telegram secret."
+        )
+        _oauth_state_secret_warned = True
+    return FUNCTION_SECRET
+
+
 def _mint_state(
     auth_user_id: str, origin_url: str = "", redirect_path: str = "/dashboard/integrations",
     mode: str = "primary", extra_claims: Optional[dict[str, Any]] = None,
 ) -> str:
+    jti = uuid.uuid4().hex
+    exp_ts = int(time.time()) + 600
     payload = {
         "sub": auth_user_id,
-        "exp": int(time.time()) + 600,
+        "jti": jti,
+        "exp": exp_ts,
         "path": redirect_path,
         "mode": mode,
     }
@@ -1951,23 +1932,75 @@ def _mint_state(
         payload["origin"] = origin_url
     if extra_claims:
         payload.update(extra_claims)
-    return jwt.encode(payload, FUNCTION_SECRET, algorithm="HS256")
+    # Record the nonce as issued-but-unconsumed so _decode_state can enforce
+    # single-use (reject reuse of a captured state token, e.g. leaked via a
+    # Referer header on the OAuth provider's redirect).
+    try:
+        supabase.table("oauth_state_nonces").insert({
+            "jti": jti,
+            "auth_user_id": auth_user_id,
+            "expires_at": datetime.fromtimestamp(exp_ts, tz=timezone.utc).isoformat(),
+        }).execute()
+    except Exception:  # noqa: BLE001
+        logger.exception("failed to record oauth_state_nonces row for jti %s", jti)
+    return jwt.encode(payload, _oauth_state_secret(), algorithm="HS256")
+
+
+def _consume_state_nonce(jti: Optional[str]) -> bool:
+    """Marks a state-JWT nonce consumed; returns False if it was missing or
+    already consumed (replay). Fails OPEN on a database error (logs and
+    allows) rather than locking every OAuth flow out if the nonces table is
+    briefly unreachable — the JWT signature/exp checks still apply either
+    way, this only adds single-use on top."""
+    if not jti:
+        return False
+    try:
+        res = (
+            supabase.table("oauth_state_nonces")
+            .select("consumed_at")
+            .eq("jti", jti)
+            .maybe_single()
+            .execute()
+        )
+        if not res.data:
+            return False
+        if res.data.get("consumed_at"):
+            return False
+        supabase.table("oauth_state_nonces").update({
+            "consumed_at": datetime.now(timezone.utc).isoformat(),
+        }).eq("jti", jti).execute()
+        return True
+    except Exception:  # noqa: BLE001
+        logger.exception("failed to consume oauth_state_nonces row for jti %s", jti)
+        return True
 
 
 def _decode_state_claim(state: str, key: str) -> Optional[str]:
     """Reads one extra (non-standard) claim out of an OAuth state JWT — used
     for PKCE's code_verifier, which has to survive the redirect round-trip
-    statelessly."""
+    statelessly.
+
+    Does NOT consume the nonce (the same state JWT carries both the PKCE
+    verifier and the main claims, and _decode_state — called separately for
+    the same request — is what enforces single-use; calling this a second
+    time for the same request must not itself count as a replay)."""
     try:
-        return jwt.decode(state, FUNCTION_SECRET, algorithms=["HS256"]).get(key)
+        return jwt.decode(state, _oauth_state_secret(), algorithms=["HS256"]).get(key)
     except jwt.PyJWTError:
         return None
 
 
 def _decode_state(state: str) -> tuple[Optional[str], str, str, str]:
-    """Decode OAuth state JWT. Returns (auth_user_id, frontend_url, redirect_path, mode)."""
+    """Decode OAuth state JWT. Returns (auth_user_id, frontend_url, redirect_path, mode).
+
+    Enforces single-use via the jti claim / oauth_state_nonces table — a
+    state JWT that was never minted by _mint_state (no matching nonce row)
+    or that has already been consumed is rejected the same as an invalid
+    signature."""
     try:
-        claims = jwt.decode(state, FUNCTION_SECRET, algorithms=["HS256"])
+        claims = jwt.decode(state, _oauth_state_secret(), algorithms=["HS256"])
+        if not _consume_state_nonce(claims.get("jti")):
+            return None, FRONTEND_URL, "/dashboard/integrations", "primary"
         origin = claims.get("origin", "").rstrip("/")
         # Validate origin is an allowed frontend to prevent open-redirect
         if origin and origin not in ALLOWED_ORIGINS:
@@ -2067,6 +2100,10 @@ async def _dispatch_kin_webhooks(user_id: str, event: str, data: dict[str, Any])
             signature = hmac.new(hook["secret"].encode(), body, hashlib.sha256).hexdigest()
             status, code, err = "failed", None, None
             try:
+                # Re-validate at delivery time, not just at create_kin_webhook
+                # save time — the URL could resolve somewhere new by now.
+                from app.core.url_safety import assert_safe_url
+                assert_safe_url(hook["url"])
                 async with httpx.AsyncClient(timeout=10) as client:
                     r = await client.post(
                         hook["url"],
@@ -2373,6 +2410,7 @@ async def send_onesignal_notification(user_id: str, title: str, message: str) ->
 # helpers/constants defined earlier in this file's execution order).
 # ---------------------------------------------------------------------------
 from app.routers import account_manager  # noqa: E402
+from app.routers import billing_webhooks  # noqa: E402
 from app.routers import chat  # noqa: E402
 from app.routers import documents  # noqa: E402
 from app.routers import email_triggers  # noqa: E402
@@ -2390,6 +2428,7 @@ from app.routers import social  # noqa: E402
 from app.routers import voice_agents  # noqa: E402
 
 app.include_router(account_manager.router)
+app.include_router(billing_webhooks.router)
 app.include_router(chat.router)
 app.include_router(documents.router)
 app.include_router(email_triggers.router)

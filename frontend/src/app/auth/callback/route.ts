@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { safeNextPath } from '@/lib/safe-redirect'
 
 function publicOrigin(request: Request, fallback: string): string {
   const proto = request.headers.get('x-forwarded-proto') ?? 'https'
@@ -27,7 +28,7 @@ export async function GET(request: Request) {
 
   // Decide destination: if the user hasn't finished onboarding, send them
   // there regardless of the requested `next` param.
-  let target = requestedNext.startsWith('/') ? requestedNext : '/dashboard'
+  let target = safeNextPath(requestedNext)
   const {
     data: { user },
   } = await supabase.auth.getUser()

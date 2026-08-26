@@ -33,6 +33,17 @@ MODEL_NAME = (
 )
 
 FUNCTION_SECRET = os.environ.get("FUNCTION_SECRET", "")
+
+# Signs/verifies OAuth-state JWTs (main.py _mint_state/_decode_state, and
+# the MCP OAuth callback state in app/routers/mcp.py) — split out from
+# FUNCTION_SECRET during security-audit remediation so a leak of one secret
+# doesn't compromise the other (FUNCTION_SECRET alone used to gate
+# /cron/*, /admin/*, /internal/*, AND sign OAuth state, AND double as the
+# Telegram webhook query secret — a single leak anywhere compromised all
+# four). Falls back to FUNCTION_SECRET at the call site if left unset, with
+# a one-time startup warning, so nothing breaks before this is set in the
+# real deploy config.
+OAUTH_STATE_SECRET = os.environ.get("OAUTH_STATE_SECRET", "")
 # Lemon Squeezy — accept either naming convention.
 LEMON_WEBHOOK_SECRET = (
     os.environ.get("LEMONSQUEEZY_WEBHOOK_SECRET")

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import calendar
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
@@ -9,6 +10,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Up
 from plugins import doc_rag
 from plugins import google_integrations as g
 
+from app.core import security as _sec
 from app.core.clients import genai_client, supabase
 from app.core.config import FUNCTION_SECRET
 from app.core.deps import require_user
@@ -18,11 +20,36 @@ logger = logging.getLogger("kin")
 
 router = APIRouter()
 
-# NOTE: `_next_crawl_at` is referenced below but was never defined anywhere in
-# the original main.py (pre-existing bug carried over verbatim from before
-# this Phase 2 router split — update_drive_sync_schedule and
-# execute_scheduled_drive_syncs would already raise NameError at call time).
-# Left as-is to guarantee zero behavior drift; not something introduced here.
+def _next_crawl_at(schedule: Optional[str], now: Optional[datetime] = None) -> Optional[str]:
+    """Compute the next Drive/OneDrive auto-resync timestamp (ISO 8601, UTC)
+    for a recurring `schedule` frequency — "daily" / "weekly" / "monthly"
+    (the only non-"off" values update_drive_sync_schedule accepts below).
+    Returns None for "off" or any unrecognized value.
+
+    FIX: this function was referenced (update_drive_sync_schedule,
+    execute_scheduled_drive_syncs below) but never defined anywhere in this
+    codebase — every call to PATCH /api/documents/sync-schedule with a
+    non-off schedule, and every POST /cron/execute-scheduled-drive-syncs
+    tick for any user with a schedule enabled, raised NameError. Found and
+    fixed in a security/correctness audit; see tests/test_documents.py for
+    regression coverage.
+    """
+    if schedule not in ("daily", "weekly", "monthly"):
+        return None
+    base = now or datetime.now(timezone.utc)
+    if schedule == "daily":
+        next_at = base + timedelta(days=1)
+    elif schedule == "weekly":
+        next_at = base + timedelta(weeks=1)
+    else:  # monthly — advance one calendar month, clamping the day to fit
+        # base.month is 1-12; adding one "step" and re-deriving year/month
+        # via divmod-by-12 handles the December -> January year rollover.
+        stepped = base.month  # == (base.month - 1) + 1, i.e. one month on
+        year = base.year + stepped // 12
+        month = stepped % 12 + 1
+        day = min(base.day, calendar.monthrange(year, month)[1])
+        next_at = base.replace(year=year, month=month, day=day)
+    return next_at.isoformat()
 
 
 def _drive_folder_id_from(s: str) -> str:
@@ -129,8 +156,9 @@ async def update_drive_sync_schedule(req: DriveScheduleUpdate, user: dict[str, A
 @router.post("/cron/execute-scheduled-drive-syncs")
 async def execute_scheduled_drive_syncs(secret: Optional[str] = None):
     """Re-index any user's Drive/OneDrive folder whose next_sync_at has passed."""
-    if FUNCTION_SECRET and secret != FUNCTION_SECRET:
-        raise HTTPException(status_code=403, detail="invalid secret")
+    # /cron/* transport stays query-param-only: this URI is registered
+    # verbatim in an external Cloud Scheduler job, outside this repo.
+    _sec.require_shared_secret(secret, FUNCTION_SECRET)
 
     now = datetime.now(timezone.utc)
     results = []

@@ -9,20 +9,53 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
 from app.core.clients import supabase
-from app.core.config import FRONTEND_URL, FUNCTION_SECRET
+from app.core.config import FRONTEND_URL
 from app.core.deps import require_user
 from app.schemas.mcp import McpCreate
+
+from main import _oauth_state_secret
 
 logger = logging.getLogger("kin")
 
 router = APIRouter()
+
+# mcp_servers columns that must never leave this API in plaintext — same
+# problem class as voice_agents.py's BYOK keys, just not masked here yet.
+# `select("*")` was returning every one of these straight to the frontend
+# on GET /api/mcp and the POST /api/mcp response (create_mcp_server returns
+# the just-upserted row, which already contains whatever the caller sent in
+# body.oauth_client_secret / body.headers). The frontend TypeScript type
+# for an MCP server already models a `has_oauth_client_secret`-shaped
+# field, expecting the backend to mask — this is that fix, applied to all
+# of the sensitive columns actually on this table, not just
+# oauth_client_secret.
+_MCP_SECRET_FIELDS = (
+    "oauth_client_secret",
+    "oauth_access_token",
+    "oauth_refresh_token",
+    "oauth_code_verifier",
+)
+
+
+def _mask_mcp_server(row: dict[str, Any]) -> dict[str, Any]:
+    row = dict(row)
+    for field in _MCP_SECRET_FIELDS:
+        row[f"has_{field}"] = bool(row.get(field))
+        row.pop(field, None)
+    # `headers` is a free-form dict the user can put anything in (often an
+    # Authorization bearer token for the target MCP server) — redact values,
+    # keep keys, so the UI can still show which header names are configured.
+    headers = row.get("headers")
+    if isinstance(headers, dict) and headers:
+        row["headers"] = {k: "••••••••" for k in headers}
+    return row
 
 
 @router.get("/api/mcp")
 async def get_mcp_servers(user: dict[str, Any] = Depends(require_user)):
     try:
         res = supabase.table("mcp_servers").select("*").eq("user_id", user["id"]).execute()
-        return res.data or []
+        return [_mask_mcp_server(row) for row in (res.data or [])]
     except Exception as e:
         logger.exception("Failed to query MCP servers")
         raise HTTPException(status_code=500, detail=str(e))
@@ -36,6 +69,12 @@ async def create_mcp_server(request: Request, body: McpCreate, user: dict[str, A
             status_code=400,
             detail="MCP server name must contain only alphanumeric characters and underscores."
         )
+
+    from app.core.url_safety import UnsafeURLError, assert_safe_url
+    try:
+        assert_safe_url(body.url)
+    except UnsafeURLError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid or disallowed MCP server url: {exc}")
 
     from plugins import mcp_client
 
@@ -107,7 +146,7 @@ async def create_mcp_server(request: Request, body: McpCreate, user: dict[str, A
         }
         res = supabase.table("mcp_servers").upsert(data, on_conflict="user_id,name").execute()
         if res.data:
-            return res.data[0]
+            return _mask_mcp_server(res.data[0])
         raise HTTPException(status_code=500, detail="Failed to save MCP server")
     except Exception as e:
         logger.exception("Failed to save MCP server")
@@ -123,6 +162,7 @@ async def test_mcp_connection(mcp_id: str, user: dict[str, Any] = Depends(requir
             raise HTTPException(status_code=404, detail="MCP server not found")
 
         from plugins import mcp_client
+        from app.core.url_safety import UnsafeURLError, assert_safe_url
 
         # Check OAuth status
         if server.get("oauth_flow_status") == "awaiting_authorization":
@@ -130,6 +170,13 @@ async def test_mcp_connection(mcp_id: str, user: dict[str, Any] = Depends(requir
                 status_code=400,
                 detail="MCP server is awaiting authorization. Please authorize the server first."
             )
+
+        # Re-validate at connect time (create_mcp_server already validated on
+        # save, but DNS can change between save and test).
+        try:
+            assert_safe_url(server["url"])
+        except UnsafeURLError as exc:
+            raise HTTPException(status_code=400, detail=f"MCP server url is no longer safe to connect to: {exc}")
 
         headers = await mcp_client.get_mcp_headers(server)
         tools = await mcp_client.list_remote_tools(server["url"], headers)
@@ -184,7 +231,11 @@ async def mcp_oauth_start(mcp_id: str, redirect_uri: str, user: dict[str, Any] =
         "mcp_id": mcp_id,
         "exp": int(time.time()) + 900
     }
-    state = jwt.encode(state_payload, FUNCTION_SECRET, algorithm="HS256")
+    # Signed with the same decoupled OAuth-state secret as main.py's
+    # _mint_state (falls back to FUNCTION_SECRET with a startup warning if
+    # OAUTH_STATE_SECRET isn't set) — this used to sign directly with
+    # FUNCTION_SECRET, duplicating the coupling issue fixed there.
+    state = jwt.encode(state_payload, _oauth_state_secret(), algorithm="HS256")
 
     scopes = server.get("oauth_scopes") or ""
     import urllib.parse
@@ -211,7 +262,7 @@ async def mcp_oauth_callback(request: Request, code: str, state: str):
     from datetime import datetime, timezone, timedelta
 
     try:
-        payload = jwt.decode(state, FUNCTION_SECRET, algorithms=["HS256"])
+        payload = jwt.decode(state, _oauth_state_secret(), algorithms=["HS256"])
         user_id = payload["sub"]
         mcp_id = payload["mcp_id"]
     except jwt.PyJWTError:

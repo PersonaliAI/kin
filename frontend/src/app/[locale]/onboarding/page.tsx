@@ -29,6 +29,7 @@ import {
   offsetLabel,
 } from "@/lib/timezones";
 import { logSignUpOnce } from "@/lib/analytics";
+import { safeNextPath } from "@/lib/safe-redirect";
 
 const STEP_ICONS = [User, Globe, Shield] as const;
 
@@ -136,7 +137,7 @@ function OnboardingPageInner() {
     const provider = auth.user.app_metadata?.provider;
     const method = provider === "google" ? "google" : provider === "azure" ? "microsoft" : "password";
     await logSignUpOnce(method);
-    window.location.href = nextPath && nextPath.startsWith("/") ? nextPath : "/dashboard";
+    window.location.href = safeNextPath(nextPath);
   }
 
   return (

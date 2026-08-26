@@ -6,15 +6,12 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-import httpx
 import yaml
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.core.clients import supabase
 from app.core.deps import require_user
 from app.schemas.marketplace import IntegrationPublish, OpenSkillVaultRequest, ReviewSubmit
-
-from main import _decode_credentials_payload
 
 logger = logging.getLogger("kin")
 
@@ -146,11 +143,15 @@ async def publish_integration(body: IntegrationPublish, user: dict[str, Any] = D
         publisher_name = body.publisher_name or user.get("display_name") or "User"
 
         if body.openapi_url:
-            async with httpx.AsyncClient() as client:
-                resp = await client.get(body.openapi_url)
-                if resp.status_code != 200:
-                    raise HTTPException(status_code=400, detail="Failed to fetch OpenAPI specification from URL.")
-                spec_text = resp.text
+            from app.core.url_safety import UnsafeURLError, safe_get
+
+            try:
+                resp = await safe_get(body.openapi_url, timeout=10.0)
+            except UnsafeURLError as exc:
+                raise HTTPException(status_code=400, detail=f"Invalid or disallowed openapi_url: {exc}")
+            if resp.status_code != 200:
+                raise HTTPException(status_code=400, detail="Failed to fetch OpenAPI specification from URL.")
+            spec_text = resp.text
 
             try:
                 try:
@@ -265,31 +266,29 @@ async def publish_integration(body: IntegrationPublish, user: dict[str, Any] = D
 @router.post("/api/openskill/v1/vault/resolve")
 async def openskill_vault_resolve(body: OpenSkillVaultRequest, request: Request):
     """
-    OpenSkill Cloud API Gateway.
-    Allows external OpenSkill developers to securely fetch credentials from the vault
-    by providing their SaaS API Key (mocked here for MVP) and their end-user ID.
+    OpenSkill Cloud API Gateway — DISABLED.
+
+    SECURITY: this route previously "verified" the caller by checking only
+    that the Authorization header's bearer token started with the literal
+    string "sk_live_" (explicitly labeled "MVP: Mock verification" in the
+    original code), then decrypted and returned ANY end_user_id's stored
+    credentials for ANY provider_slug with no check that the caller was
+    ever authorized by that end user. That meant any caller who could send
+    an HTTP request — no real API key, no session, nothing — could exfiltrate
+    any user's decrypted OAuth tokens / BYOK API keys from user_credentials.
+    This was found during a security audit (see the audit report) and is
+    disabled here rather than patched in place, because a correct fix needs
+    a real developer-API-key table plus an explicit developer<->end_user
+    consent/grant record — neither exists anywhere in this codebase
+    (checked supabase/migrations/ and app/schemas/ for any
+    developer-key/vault-grant table; none found). Inventing that schema as
+    part of an automated security-fix pass was judged too risky, so the
+    route now fails safe (501) until a real authorization model is built.
     """
-    auth_header = request.headers.get("Authorization", "")
-    if not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
-
-    # MVP: Mock verification of the developer's API Key
-    developer_api_key = auth_header.split(" ")[1]
-    if not developer_api_key.startswith("sk_live_"):
-        raise HTTPException(status_code=403, detail="Invalid OpenSkill Developer API Key")
-
-    try:
-        # Fetch the requested credential from the end_user's vault
-        res = supabase.table("user_credentials").select("encrypted_payload").eq("user_id", body.end_user_id).eq("integration_slug", body.provider_slug).maybe_single().execute()
-
-        if not res.data or not res.data.get("encrypted_payload"):
-            raise HTTPException(status_code=404, detail=f"No credential found for provider '{body.provider_slug}'")
-
-        payload = _decode_credentials_payload(res.data["encrypted_payload"])
-        return {"credentials": payload}
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception("Failed to resolve OpenSkill credentials")
-        raise HTTPException(status_code=500, detail=str(e))
+    raise HTTPException(
+        status_code=501,
+        detail=(
+            "developer credential verification not yet implemented — "
+            "endpoint disabled pending a real authorization model"
+        ),
+    )

@@ -8,6 +8,7 @@ import { Loader2, AlertCircle, Eye, EyeOff, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AuthShell, GoogleIcon, MicrosoftIcon } from "@/components/auth/auth-shell";
 import { createClient } from "@/lib/supabase/client";
+import { safeNextPath } from "@/lib/safe-redirect";
 
 type BusyKey = "password" | "google" | "microsoft" | null;
 
@@ -27,7 +28,7 @@ function SignupPageInner() {
   // The ultimate destination once auth (+ onboarding, if needed) is done —
   // defaults to /dashboard. /auth/callback detours through /onboarding on
   // its own when required and forwards this same value onward from there.
-  const finalNext = rawNext && rawNext.startsWith("/") ? rawNext : "/dashboard";
+  const finalNext = safeNextPath(rawNext);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);

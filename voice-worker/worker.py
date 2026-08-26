@@ -116,15 +116,20 @@ AVAILABLE_TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
 
 
 def _backend_client() -> httpx.AsyncClient:
-    return httpx.AsyncClient(base_url=KIN_BACKEND_URL, timeout=20.0)
+    # Sent as a header rather than a query param so it never lands in
+    # Cloud Run request logs or proxy logs in plaintext (kin-backend's
+    # /internal/* routes accept this header; the query param is still
+    # accepted there too, for callers that can't easily be changed).
+    return httpx.AsyncClient(
+        base_url=KIN_BACKEND_URL,
+        timeout=20.0,
+        headers={"Authorization": f"Bearer {FUNCTION_SECRET}"},
+    )
 
 
 async def fetch_voice_agent_config(voice_agent_id: str) -> dict[str, Any]:
     async with _backend_client() as client:
-        resp = await client.get(
-            f"/internal/voice-agents/{voice_agent_id}/config",
-            params={"secret": FUNCTION_SECRET},
-        )
+        resp = await client.get(f"/internal/voice-agents/{voice_agent_id}/config")
         resp.raise_for_status()
         return resp.json()
 
@@ -133,7 +138,6 @@ async def report_call_event(**fields: Any) -> dict[str, Any]:
     async with _backend_client() as client:
         resp = await client.post(
             "/internal/voice-calls",
-            params={"secret": FUNCTION_SECRET},
             json={k: v for k, v in fields.items() if v is not None},
         )
         resp.raise_for_status()
@@ -144,7 +148,6 @@ async def execute_backend_tool(voice_agent_id: str, tool_name: str, args: dict[s
     async with _backend_client() as client:
         resp = await client.post(
             "/internal/voice-tools/execute",
-            params={"secret": FUNCTION_SECRET},
             json={"voice_agent_id": voice_agent_id, "tool_name": tool_name, "args": args},
         )
         resp.raise_for_status()
@@ -220,7 +223,19 @@ def build_tools(voice_agent_id: str, enabled_tool_names: list[str]) -> list:
             logger.warning("Voice agent %s has unknown tool %r enabled, skipping", voice_agent_id, tool_name)
             continue
 
-        async def _run(raw_arguments: dict[str, Any], context: RunContext, _name: str = tool_name) -> Any:
+        async def _run(
+            raw_arguments: dict[str, Any],
+            context: RunContext,
+            _name: str = tool_name,
+            _schema: dict[str, Any] = schema,
+        ) -> Any:
+            missing = [
+                field
+                for field in _schema.get("parameters", {}).get("required", [])
+                if field not in raw_arguments
+            ]
+            if missing:
+                return {"error": f"missing required argument(s): {', '.join(missing)}"}
             return await execute_backend_tool(voice_agent_id, _name, raw_arguments)
 
         tools.append(function_tool(_run, raw_schema=schema))

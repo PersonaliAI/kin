@@ -12,12 +12,14 @@ from fastapi import (
     Form,
     Header,
     HTTPException,
+    Request,
     UploadFile,
 )
 
 from plugins import memory as mem
 
 from app.core import llm as core_llm
+from app.core import security as _sec
 from app.core.clients import genai_client, supabase
 from app.core.deps import require_user
 from app.core.llm_catalog import BYOK_PROVIDERS, DEFAULT_MODELS
@@ -318,39 +320,80 @@ def _resolve_kin_api_key(authorization: Optional[str]) -> dict[str, Any]:
 
 @router.post("/api/v1/messages")
 async def kin_public_api_message(
+    request: Request,
     body: KinApiMessageRequest,
     authorization: Optional[str] = Header(None),
 ):
     """Programmatic access to a user's own Kin, authenticated with a Kin API
     key instead of a Supabase session — the "custom API" advertised on
     Executive. Counts against the same monthly message quota as the web/
-    web chat, since it runs the exact same model calls."""
-    key_row = _resolve_kin_api_key(authorization)
-    user_res = supabase.table("users").select("*").eq("id", key_row["user_id"]).execute()
-    if not user_res.data:
-        raise HTTPException(status_code=401, detail="API key owner not found")
-    user = user_res.data[0]
-    if plan_for(user) not in EXECUTIVE_ONLY:
-        # Plan may have lapsed since the key was issued.
-        raise HTTPException(status_code=403, detail="API access requires an active Executive plan")
+    web chat, since it runs the exact same model calls.
 
-    used, limit = quota_state(user)
-    if used >= limit:
-        raise HTTPException(
-            status_code=429, detail=f"Monthly token quota of {_fmt_tokens(limit)} reached"
+    Enforces the limits documented in the OpenAPI description
+    (app/core/app_factory.py): 60 req/min per key, 120 req/min per IP, the
+    key's `scopes`, and its `allowed_ips` — previously these checks existed
+    in app/core/security.py but were never actually called from here (or
+    anywhere), so none of it was really enforced. Every request is also
+    audit-logged to kin_api_audit_log (best-effort, never blocks the reply).
+    """
+    started = time.monotonic()
+    status_code = 200
+    key_row: Optional[dict[str, Any]] = None
+    try:
+        # Per-IP limit applies before we even know which key this is —
+        # matches "120 requests/minute per IP address across all public
+        # endpoints" in the docs (a single IP hammering with many different
+        # keys is still capped).
+        _sec.check_ip_rate(request, limit=120, window=60)
+
+        key_row = _resolve_kin_api_key(authorization)
+        _sec.check_key_rate(key_row["id"], limit=60, window=60)
+        _sec.check_ip_allowlist(key_row, request)
+        _sec.check_scope(key_row, "chat")
+
+        user_res = supabase.table("users").select("*").eq("id", key_row["user_id"]).execute()
+        if not user_res.data:
+            status_code = 401
+            raise HTTPException(status_code=401, detail="API key owner not found")
+        user = user_res.data[0]
+        if plan_for(user) not in EXECUTIVE_ONLY:
+            # Plan may have lapsed since the key was issued.
+            status_code = 403
+            raise HTTPException(status_code=403, detail="API access requires an active Executive plan")
+
+        used, limit = quota_state(user)
+        if used >= limit:
+            status_code = 429
+            raise HTTPException(
+                status_code=429, detail=f"Monthly token quota of {_fmt_tokens(limit)} reached"
+            )
+
+        supabase.table("kin_api_keys").update({
+            "last_used_at": datetime.now(timezone.utc).isoformat(),
+            "request_count": (key_row.get("request_count") or 0) + 1,
+        }).eq("id", key_row["id"]).execute()
+
+        sid = body.session_id or f"api-{user['id']}"
+        result = await run_assistant(
+            user=user, text=body.text, audio_bytes=None, audio_mime=None,
+            source="api", session_id=sid,
         )
-
-    supabase.table("kin_api_keys").update({
-        "last_used_at": datetime.now(timezone.utc).isoformat(),
-        "request_count": (key_row.get("request_count") or 0) + 1,
-    }).eq("id", key_row["id"]).execute()
-
-    sid = body.session_id or f"api-{user['id']}"
-    result = await run_assistant(
-        user=user, text=body.text, audio_bytes=None, audio_mime=None,
-        source="api", session_id=sid,
-    )
-    return {"reply": result["reply"], "session_id": sid}
+        return {"reply": result["reply"], "session_id": sid}
+    except HTTPException as exc:
+        status_code = exc.status_code
+        raise
+    finally:
+        _sec.log_api_access(
+            supabase,
+            key_id=(key_row or {}).get("id", ""),
+            user_id=(key_row or {}).get("user_id"),
+            endpoint="/api/v1/messages",
+            method="POST",
+            client_ip=_sec.client_ip(request),
+            request_id=_sec.get_request_id(request),
+            status_code=status_code,
+            duration_ms=int((time.monotonic() - started) * 1000),
+        )
 
 
 @router.get("/api/chat/sessions")

@@ -20,9 +20,15 @@ KIN_WEBHOOK_EVENTS = {"message.created"}
 
 @router.post("/api/kin/webhooks")
 async def create_kin_webhook(body: KinWebhookCreate, user: dict[str, Any] = Depends(require_user)):
+    from app.core.url_safety import UnsafeURLError, assert_safe_url
+
     _require_executive(user)
     if not body.url.startswith("https://"):
         raise HTTPException(status_code=400, detail="Webhook URL must be https://")
+    try:
+        assert_safe_url(body.url)
+    except UnsafeURLError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid or disallowed webhook URL: {exc}")
     events = [e for e in body.events if e in KIN_WEBHOOK_EVENTS] or ["message.created"]
     secret = "whsec_" + secrets.token_hex(24)
     row = supabase.table("kin_webhooks").insert({

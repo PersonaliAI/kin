@@ -44,7 +44,15 @@ async def health_check(request: Request):
 async def get_capabilities(user: dict[str, Any] = Depends(require_user)):
     """Report which optional integrations are configured on the backend so the
     UI can gate provider choices."""
-    import notifications as _notify
+    # FIX: this was `import notifications as _notify` — a bare top-level
+    # import that only works if `plugins/` itself is on sys.path, which it
+    # isn't at app startup (only scripts/graph_parity_check.py adds it, for
+    # its own standalone CLI use — see that file). Every other call site in
+    # this codebase (main.py, plugins/agent_tools.py) uses the form below,
+    # which is what actually resolves given this app's real import context.
+    # The bug made every call to GET /api/capabilities raise
+    # ModuleNotFoundError: No module named 'notifications'.
+    from plugins import notifications as _notify
     return {
         "onesignal_configured": _notify.onesignal_configured(),
     }

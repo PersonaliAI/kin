@@ -10,40 +10,45 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.requests import Request as _StarletteRequest
-from starlette.responses import Response as _StarletteResponse
 
 from app.core import security as _sec
 from app.core.config import ALLOWED_ORIGINS, SENTRY_DSN, SENTRY_ENV, SENTRY_TRACES_SAMPLE_RATE
 
 logger = logging.getLogger("kin")
 
+# NOTE (security-audit remediation): this used to describe a "Chatty API" /
+# "your Chatty bots" product with support@chatty.ai contact info, a
+# chatty_sk_ key prefix, and OpenAPI tags for leads/knowledge-base/bot
+# management endpoints that don't exist anywhere in this codebase (grepped
+# for `tags=[` across every router — only the health-check route actually
+# sets a tag, "Health"). That appears to be leftover/forked scaffolding
+# from a different, never-built product line rather than this one ("Kin") —
+# see also the removal of the dead Widget CORS middleware and
+# chatty_quota_exceeded()/get_chatty_monthly_usage() below/in main.py.
+# Rewritten to describe what this API actually is and actually enforces.
 _API_DESCRIPTION = """
-## Chatty Public API — v1
+## Kin Public API — v1
 
-Build custom integrations on top of your Chatty bots.
+Programmatic access to your own Kin assistant (Executive plan) — send it a
+message the same way the web chat does.
 
 ### Authentication
 
-All `/api/v1/*` endpoints require a **Bearer API key**:
+`POST /api/v1/messages` requires a **Bearer API key**, created in
+**Dashboard → API Keys**:
 
 ```
-Authorization: Bearer chatty_sk_<your-key>
+Authorization: Bearer kin_sk_<your-key>
 ```
 
-Generate keys in **Dashboard → API Keys**. Keys carry scopes that control
-which endpoints they can call:
-
-| Scope   | Grants access to |
-|---------|-----------------|
-| `chat`  | `POST /api/v1/chat` — send messages |
-| `read`  | leads, conversations, analytics, knowledge list, usage stats |
-| `write` | add / delete knowledge sources, clear conversation sessions |
-| `admin` | all scopes combined |
+Keys carry `scopes` (currently: `chat`, `read`, `write`, `admin` as a
+super-scope) and an optional `allowed_ips` allowlist, both configurable per
+key.
 
 ### Rate limits
 
 * **60 requests / minute** per API key
-* **120 requests / minute** per IP address across all public endpoints
+* **120 requests / minute** per IP address across all `/api/v1/*` endpoints
 * HTTP `429` is returned when a limit is exceeded; retry after the
   `Retry-After` header (seconds).
 
@@ -63,60 +68,8 @@ a new version prefix.
 
 _OPENAPI_TAGS = [
     {
-        "name": "Public API — Chat",
-        "description": "Send messages to your bot programmatically.",
-    },
-    {
-        "name": "Public API — Bot",
-        "description": "Read public metadata about the bot tied to your API key.",
-    },
-    {
-        "name": "Public API — Leads",
-        "description": "Access leads captured by the bot.",
-    },
-    {
-        "name": "Public API — Conversations",
-        "description": "Browse and manage conversation sessions.",
-    },
-    {
-        "name": "Public API — Knowledge",
-        "description": "Add and manage knowledge sources for the bot (requires `write` scope).",
-    },
-    {
-        "name": "Public API — Analytics",
-        "description": "Usage and performance statistics for the bot.",
-    },
-    {
-        "name": "Public API — Usage",
-        "description": "API key usage statistics.",
-    },
-    {
-        "name": "Dashboard — Bots",
-        "description": "Bot management endpoints (Supabase session auth).",
-    },
-    {
-        "name": "Dashboard — Inbox",
-        "description": "Inbox / human handoff management (Supabase session auth).",
-    },
-    {
-        "name": "Dashboard — Knowledge Base",
-        "description": "Crawl and source management (Supabase session auth).",
-    },
-    {
-        "name": "Dashboard — API Keys",
-        "description": "Create, list, and revoke API keys (Supabase session auth).",
-    },
-    {
-        "name": "Dashboard — Integrations",
-        "description": "Google / Microsoft OAuth and integration management (Supabase session auth).",
-    },
-    {
-        "name": "Widget",
-        "description": "Unauthenticated endpoints consumed by the embed widget.",
-    },
-    {
         "name": "Cron",
-        "description": "Internal cron endpoints — called by Cloud Scheduler, protected by FUNCTION_SECRET.",
+        "description": "Internal cron/admin/worker endpoints — called by Cloud Scheduler or kin-voice-worker, protected by FUNCTION_SECRET.",
     },
     {
         "name": "Health",
@@ -146,12 +99,12 @@ def create_app() -> FastAPI:
     _init_sentry()
 
     app = FastAPI(
-        title="Chatty API",
+        title="Kin API",
         version="1.0.0",
         description=_API_DESCRIPTION,
         contact={
-            "name": "Chatty Support",
-            "email": "support@chatty.ai",
+            "name": "Kin Support",
+            "email": "support@personaliai.com",
         },
         license_info={
             "name": "Proprietary",
@@ -175,26 +128,19 @@ def create_app() -> FastAPI:
         expose_headers=["X-Request-ID"],
     )
 
-    @app.middleware("http")
-    async def _widget_open_cors(request: _StarletteRequest, call_next):
-        """Public widget endpoints are embedded on ANY customer domain, so they
-        can't use the fixed origin allowlist. Reflect the request Origin (no
-        credentials) for /api/widget/* — widget.js fetches these from the host page."""
-        if request.url.path.startswith("/api/widget/"):
-            origin = request.headers.get("origin", "*")
-            if request.method == "OPTIONS":
-                return _StarletteResponse(status_code=204, headers={
-                    "Access-Control-Allow-Origin": origin,
-                    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-                    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Widget-Token",
-                    "Access-Control-Max-Age": "86400",
-                    "Vary": "Origin",
-                })
-            resp = await call_next(request)
-            resp.headers["Access-Control-Allow-Origin"] = origin
-            resp.headers["Vary"] = "Origin"
-            return resp
-        return await call_next(request)
+    # REMOVED (security-audit remediation): a `/api/widget/*`-scoped
+    # middleware used to sit here that reflected any request Origin back as
+    # Access-Control-Allow-Origin with no allowlist check — an open-CORS
+    # surface, deliberately so, for a "public embed widget" product. No
+    # route under /api/widget/* exists anywhere in this codebase (grepped
+    # the whole tree), so the open CORS reflection was pure attack surface
+    # with zero corresponding functionality — removed rather than kept
+    # "just in case", consistent with removing the rest of that unbuilt
+    # product's leftover scaffolding (see the Widget OpenAPI tag / Chatty
+    # branding / chatty_quota_exceeded() cleanup elsewhere in this pass).
+    # If a real public embed widget is built later, give it real origin
+    # validation (e.g. an allowlist keyed by an embed token) rather than
+    # reflecting Origin unconditionally.
 
     # Global exception handler — ensure CORS headers are present on 500 responses.
     # Starlette's CORSMiddleware only wraps SUCCESSFUL responses by default; when
@@ -202,12 +148,25 @@ def create_app() -> FastAPI:
     # browser reports "blocked by CORS policy" hiding the real 500.
     @app.exception_handler(Exception)
     async def _global_exception_handler(request: _StarletteRequest, exc: Exception):
+        # Full exception (type, message, traceback) goes to the server-side
+        # log via logger.exception below — that's the only place it should
+        # be visible. Previously the client-facing response also echoed
+        # `type(exc).__name__: str(exc)[:300]`, leaking internal exception
+        # detail (stack context, occasionally raw DB/library error text,
+        # sometimes including fragments of query values) to any caller,
+        # authenticated or not. Fixed during security-audit remediation —
+        # the client now only ever gets a generic message plus the
+        # request_id, which is enough for the caller to reference when
+        # asking for help without exposing internals.
         logger.exception("unhandled exception on %s %s", request.method, request.url.path)
         origin = request.headers.get("origin", "")
         allow_origin = origin if origin in ALLOWED_ORIGINS else (ALLOWED_ORIGINS[0] if ALLOWED_ORIGINS else "*")
         return JSONResponse(
             status_code=500,
-            content={"detail": f"server error: {type(exc).__name__}: {str(exc)[:300]}"},
+            content={
+                "detail": "Internal server error",
+                "request_id": _sec.get_request_id(request),
+            },
             headers={
                 "Access-Control-Allow-Origin": allow_origin,
                 "Access-Control-Allow-Credentials": "true",

@@ -4,10 +4,11 @@ import logging
 from datetime import datetime
 from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from plugins import agent_tools, livekit_control, llm_providers, telephony_providers
 
+from app.core import security as _sec
 from app.core.clients import supabase
 from app.core.config import FUNCTION_SECRET
 from app.core.deps import require_user
@@ -239,14 +240,29 @@ def _get_provider_api_key(user_id: str, provider_slug: str) -> Optional[str]:
 
 
 @router.get("/internal/voice-agents/{agent_id}/config")
-async def internal_get_voice_agent_config(agent_id: str, secret: Optional[str] = None):
+async def internal_get_voice_agent_config(request: Request, agent_id: str, secret: Optional[str] = None):
     """Fetched by kin-voice-worker at the start of every call (job.metadata
     carries this agent_id). Not user-JWT-gated — the worker has no logged-in
     user, only the shared FUNCTION_SECRET. Decrypts each BYOK provider key
     here (the worker never holds BYOK_ENCRYPTION_KEY) — this response only
-    ever travels over the internal, secret-gated HTTPS call from the worker."""
-    if FUNCTION_SECRET and secret != FUNCTION_SECRET:
-        raise HTTPException(status_code=403, detail="invalid secret")
+    ever travels over the internal, secret-gated HTTPS call from the worker.
+
+    /internal/* prefers `Authorization: Bearer <FUNCTION_SECRET>`; the
+    `secret` query param still works as a fallback until kin-voice-worker is
+    updated to send the header.
+
+    No per-agent ownership check beyond the shared secret: `agent_id` is a
+    `voice_agents.id` UUID (gen_random_uuid() primary key — see
+    20260813000000_voice_agents.sql), not a guessable sequential ID, so this
+    is not an enumerable IDOR on its own. The practical exposure is bounded
+    by FUNCTION_SECRET leaking (addressed separately: hmac.compare_digest +
+    fail-closed + header transport above), at which point ANY agent's
+    decrypted BYOK keys are reachable — a real but secret-leak-gated risk,
+    not an open one. If kin-voice-worker's dispatch context is ever changed
+    to know which agent(s) it's legitimately allowed to fetch, add an
+    explicit check here rather than relying on the secret alone.
+    """
+    _sec.require_shared_secret(_sec.resolve_gated_secret(request, secret), FUNCTION_SECRET)
     res = supabase.table("voice_agents").select("*").eq("id", agent_id).execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Voice agent not found")
@@ -270,13 +286,17 @@ async def internal_get_voice_agent_config(agent_id: str, secret: Optional[str] =
 
 
 @router.post("/internal/voice-tools/execute")
-async def internal_execute_voice_tool(body: InternalToolExecute, secret: Optional[str] = None):
+async def internal_execute_voice_tool(request: Request, body: InternalToolExecute, secret: Optional[str] = None):
     """Runs a tool call made by a live voice-agent session, by reusing the
     exact same dispatcher (agent_tools.execute) the text chat surface uses —
     so calendar booking / lead creation / etc. behave identically on a phone
-    call as they do in chat, with no reimplementation."""
-    if FUNCTION_SECRET and secret != FUNCTION_SECRET:
-        raise HTTPException(status_code=403, detail="invalid secret")
+    call as they do in chat, with no reimplementation.
+
+    /internal/* prefers `Authorization: Bearer <FUNCTION_SECRET>`; the
+    `secret` query param still works as a fallback until kin-voice-worker is
+    updated to send the header.
+    """
+    _sec.require_shared_secret(_sec.resolve_gated_secret(request, secret), FUNCTION_SECRET)
 
     agent_res = supabase.table("voice_agents").select("user_id, tools").eq("id", body.voice_agent_id).execute()
     if not agent_res.data:
@@ -302,12 +322,16 @@ async def internal_execute_voice_tool(body: InternalToolExecute, secret: Optiona
 
 
 @router.post("/internal/voice-calls")
-async def internal_upsert_voice_call(body: InternalVoiceCallEvent, secret: Optional[str] = None):
+async def internal_upsert_voice_call(request: Request, body: InternalVoiceCallEvent, secret: Optional[str] = None):
     """kin-voice-worker posts a call-start event (no call_id) to open a log
     row, then further events (transcript/summary/end) keyed by the returned
-    id, so the dashboard's call history stays live during a call."""
-    if FUNCTION_SECRET and secret != FUNCTION_SECRET:
-        raise HTTPException(status_code=403, detail="invalid secret")
+    id, so the dashboard's call history stays live during a call.
+
+    /internal/* prefers `Authorization: Bearer <FUNCTION_SECRET>`; the
+    `secret` query param still works as a fallback until kin-voice-worker is
+    updated to send the header.
+    """
+    _sec.require_shared_secret(_sec.resolve_gated_secret(request, secret), FUNCTION_SECRET)
 
     try:
         if not body.call_id:

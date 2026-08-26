@@ -1,16 +1,25 @@
-fastapi
-uvicorn
-google-genai
-supabase
-python-dotenv
-httpx
-pydantic
-pytz
-PyJWT[crypto]
-python-multipart
-pypdf
-python-docx
-openpyxl
+# Pinned during security-audit remediation: every package below used to be
+# unpinned (only markitdown[all] had a version), meaning a fresh
+# `pip install -r requirements.txt` at any future deploy/CI run could pull
+# a new major version with breaking changes or an unvetted release, with no
+# lockfile to catch it. Versions below are what's actually installed in the
+# environment this pass ran `pytest` against — verify the suite still
+# passes after upgrading any of these, same as before this change, just now
+# with a known-good baseline to diff from instead of "whatever pip resolves
+# today".
+fastapi==0.136.1
+uvicorn==0.46.0
+google-genai==2.18.0
+supabase==2.30.0
+python-dotenv==1.2.2
+httpx==0.28.1
+pydantic==2.12.5
+pytz==2025.2
+PyJWT[crypto]==2.13.0
+python-multipart==0.0.31
+pypdf==6.15.0
+python-docx==1.2.0
+openpyxl==3.1.5
 # markitdown — Microsoft's document-to-Markdown converter. Stage 3 of the doc_rag
 # migration: primary text-extraction path for PDF/DOCX/XLSX uploads in
 # plugins/doc_rag.py, replacing the pypdf/python-docx/openpyxl extraction as the
@@ -19,33 +28,40 @@ openpyxl
 # [all] pulls in mammoth (docx), pdfminer.six/pdfplumber (pdf), python-pptx,
 # xlrd, etc. — pinned to the version verified in this environment.
 markitdown[all]==0.1.7
-cryptography
-croniter
-PyYAML
-Pillow
+cryptography==50.0.0
+croniter==6.2.2
+PyYAML==6.0.3
+Pillow==12.3.0
 # secp256k1 Schnorr signing for the Nostr social provider — Nostr events must
 # be signed with BIP340 Schnorr sigs; there's no reasonable way to do this
 # without a real EC library, so this is a deliberate exception to "no new
 # core deps" for the social-provider framework.
-coincurve
+coincurve==21.0.0
 # Nostr's relay protocol (publishing an EVENT) is WebSocket-only — no HTTP
 # fallback exists in the spec — hence this second Nostr-only dependency.
-websockets
-openai
-anthropic
+websockets==15.0.1
+openai==2.54.0
+anthropic==0.76.0
 # litellm — unified LLM-calling layer (app/core/llm.py). Stage 0 of a staged
 # migration off direct google-genai calls; existing google-genai/openai/anthropic
 # deps stay as-is for now, this is additive, not a cutover.
-litellm
+litellm==1.74.9
 # LiveKit server SDK — used by livekit_control.py to dispatch the shared
 # kin-voice-worker agent and bridge outbound SIP calls. Not the full
 # livekit-agents framework (that only runs inside kin-voice-worker itself).
-livekit-api
+livekit-api==1.2.0
 
-sentry-sdk[fastapi]
+sentry-sdk[fastapi]==2.59.0
 
 # LangGraph — orchestration layer for graph_agent.py, the feature-flagged
 # (KIN_USE_LANGGRAPH) replacement for run_assistant's manual tool-calling
 # for-loop. Calls into the same _gemini_generate/agent_tools.execute
 # primitives; not a Gemini API replacement, so no langchain-google-genai here.
-langgraph
+langgraph==1.0.6
+
+# defusedxml — hardens the RSS auto-post feed parser (app/routers/social.py,
+# /cron/execute-autoposts) against XML entity-expansion DoS ("billion
+# laughs"), which stdlib xml.etree.ElementTree does not guard against.
+# Added during security-audit remediation alongside the SSRF guard
+# (app/core/url_safety.py) on the same fetch.
+defusedxml==0.7.1

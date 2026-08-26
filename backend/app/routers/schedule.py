@@ -6,6 +6,7 @@ from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from app.core import security as _sec
 from app.core.clients import supabase
 from app.core.config import FUNCTION_SECRET
 from app.core.deps import require_user
@@ -171,8 +172,9 @@ async def test_scheduled_task(task_id: str, user: dict[str, Any] = Depends(requi
 
 @router.post("/cron/execute-scheduled-tasks")
 async def execute_scheduled_tasks(secret: Optional[str] = None):
-    if FUNCTION_SECRET and secret != FUNCTION_SECRET:
-        raise HTTPException(status_code=403, detail="invalid secret")
+    # /cron/* transport stays query-param-only: this URI is registered
+    # verbatim in an external Cloud Scheduler job, outside this repo.
+    _sec.require_shared_secret(secret, FUNCTION_SECRET)
 
     import pytz
     from croniter import croniter

@@ -151,21 +151,47 @@ async def delete_flow_credentials(slug: str, user: dict[str, Any] = Depends(requ
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# FIX: this used to check `plan == "premium"` — a plan value that appears
+# nowhere else in this codebase (real tiers are free/basic/pro/executive;
+# see main.py PLAN_QUOTAS/KIN_TOKEN_QUOTAS and the users_plan_check DB
+# constraint), so every paying user silently fell through to the "else"
+# branch and got the free-tier limit regardless of what they were paying
+# for. Limits below follow the same free < basic < pro < executive
+# progression main.py's KIN_TOKEN_QUOTAS uses.
+FLOW_LIMITS: dict[str, dict[str, int]] = {
+    "free": {"max_flows": 3, "max_runs_per_month": 100},
+    "basic": {"max_flows": 10, "max_runs_per_month": 1000},
+    "pro": {"max_flows": 30, "max_runs_per_month": 5000},
+    "executive": {"max_flows": 100, "max_runs_per_month": 20000},
+}
+
+
 @router.get("/api/flow-limits")
 async def get_flow_limits(user: dict[str, Any] = Depends(require_user)):
     try:
-        plan = user.get("plan", "free")
-        max_flows = 100 if plan == "premium" else 10
-        max_runs = 10000 if plan == "premium" else 1000
+        plan = plan_for(user)
+        limits = FLOW_LIMITS.get(plan, FLOW_LIMITS["free"])
 
         # Query current active flows
         flows_res = supabase.table("flows").select("id", count="exact").eq("user_id", user["id"]).eq("status", "active").execute()
         active_flows = flows_res.count or 0
 
+        # FIX: this was hardcoded to 0 — flow_runs (20260517000000_kin_flow.sql)
+        # already has what's needed for a real count.
+        month_start = datetime.now(timezone.utc).replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
+        runs_res = (
+            supabase.table("flow_runs")
+            .select("id", count="exact", head=True)
+            .eq("user_id", user["id"])
+            .gte("created_at", month_start)
+            .execute()
+        )
+        runs_this_month = runs_res.count or 0
+
         return {
             "plan": plan,
-            "limits": {"max_flows": max_flows, "max_runs_per_month": max_runs, "can_publish": 1},
-            "usage": {"active_flows": active_flows, "runs_this_month": 0}
+            "limits": {**limits, "can_publish": 1},
+            "usage": {"active_flows": active_flows, "runs_this_month": runs_this_month},
         }
     except Exception as e:
         logger.exception("Failed to fetch flow limits")

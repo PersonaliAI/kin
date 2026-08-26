@@ -4,11 +4,12 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from plugins import google_integrations as g
 from plugins import microsoft_integrations as ms
 
+from app.core import security as _sec
 from app.core.clients import supabase
 from app.core.config import FUNCTION_SECRET
 
@@ -20,16 +21,20 @@ router = APIRouter()
 
 
 @router.post("/admin/run-email-trigger-flows")
-async def run_email_trigger_flows(secret: Optional[str] = None):
+async def run_email_trigger_flows(request: Request, secret: Optional[str] = None):
     """Poll every active email trigger for new matching mail since it was
     last checked, and fire the associated prompt when found.
 
     Called every minute by the "kin-flow-email" Cloud Scheduler job — that
     job has existed since 2026-05-17 hitting exactly this path, but nothing
     was ever implemented behind it (confirmed 404 in production logs).
+
+    /admin/* prefers `Authorization: Bearer <FUNCTION_SECRET>`; the `secret`
+    query param still works as a fallback for this specific Cloud Scheduler
+    job's existing URI (query strings end up in logs, so migrate the job to
+    the header when convenient).
     """
-    if FUNCTION_SECRET and secret != FUNCTION_SECRET:
-        raise HTTPException(status_code=403, detail="invalid secret")
+    _sec.require_shared_secret(_sec.resolve_gated_secret(request, secret), FUNCTION_SECRET)
 
     try:
         res = supabase.table("email_trigger_flows").select("*").eq("is_active", True).execute()

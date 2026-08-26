@@ -5,6 +5,7 @@ from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 
+from app.core import security as _sec
 from app.core.clients import supabase
 from app.core.deps import require_user
 from app.schemas.account_manager import AccountManagerAssign
@@ -42,8 +43,12 @@ async def assign_account_manager(body: AccountManagerAssign, x_admin_secret: Opt
     Gated by a shared secret (ADMIN_SECRET env var), not a user session,
     since there's no admin panel/auth system to hook into yet."""
     admin_secret = os.environ.get("ADMIN_SECRET", "")
-    if not admin_secret or x_admin_secret != admin_secret:
-        raise HTTPException(status_code=403, detail="Invalid admin secret")
+    # Drive-by fix alongside the FUNCTION_SECRET remediation elsewhere: this
+    # was already fail-closed (falsy admin_secret always denies), but used a
+    # plain `!=` comparison — switched to the same constant-time helper used
+    # for FUNCTION_SECRET, for consistency and to close the timing side
+    # channel.
+    _sec.require_shared_secret(x_admin_secret, admin_secret)
     supabase.table("users").update({
         "account_manager_name": body.name,
         "account_manager_email": body.email,

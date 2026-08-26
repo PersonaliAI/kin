@@ -15,6 +15,7 @@ from fastapi.responses import RedirectResponse
 
 from plugins import social_providers as sp
 
+from app.core import security as _sec
 from app.core.clients import supabase
 from app.core.config import FUNCTION_SECRET, MODEL_NAME
 from app.core.deps import require_user
@@ -292,8 +293,14 @@ async def get_social_webhook(user: dict[str, Any] = Depends(require_user)):
 
 @router.post("/api/social/webhook")
 async def save_social_webhook(body: SocialWebhookSave, user: dict[str, Any] = Depends(require_user)):
+    from app.core.url_safety import UnsafeURLError, assert_safe_url
+
     if not body.url.startswith("https://"):
         raise HTTPException(status_code=400, detail="Webhook URL must be https://")
+    try:
+        assert_safe_url(body.url)
+    except UnsafeURLError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid or disallowed webhook URL: {exc}")
     secret = secrets.token_hex(24)
     existing = (
         supabase.table("social_webhooks").select("secret").eq("user_id", user["id"]).maybe_single().execute()
@@ -526,6 +533,13 @@ async def get_social_auto_posts(user: dict[str, Any] = Depends(require_user)):
 
 @router.post("/api/social/auto-posts")
 async def create_social_auto_post(body: SocialAutoPostCreate, user: dict[str, Any] = Depends(require_user)):
+    from app.core.url_safety import UnsafeURLError, assert_safe_url
+
+    try:
+        assert_safe_url(body.url)
+    except UnsafeURLError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid or disallowed feed URL: {exc}")
+
     try:
         auto_data = {
             "user_id": user["id"],
@@ -631,16 +645,24 @@ async def _fire_social_webhook(user_id: str, event: str, post: dict[str, Any]) -
         secret = hook.get("secret")
         if secret:
             headers["X-Kin-Signature"] = hmac.new(secret.encode(), body.encode(), hashlib.sha256).hexdigest()
+        # Re-validate at delivery time, not just at save time (save_social_webhook
+        # already checks this, but the URL could point somewhere new by the
+        # time it's actually fetched — DNS can change between save and send).
+        from app.core.url_safety import UnsafeURLError, assert_safe_url
+        assert_safe_url(hook["url"])
         async with httpx.AsyncClient(timeout=10.0) as client:
             await client.post(hook["url"], content=body, headers=headers)
+    except UnsafeURLError:
+        logger.warning("social webhook URL for user %s is no longer safe to deliver to, skipping", user_id)
     except Exception:
         logger.warning("social webhook delivery failed for user %s", user_id, exc_info=True)
 
 
 @router.post("/cron/publish-social-posts")
 async def cron_publish_social_posts(secret: Optional[str] = None):
-    if FUNCTION_SECRET and secret != FUNCTION_SECRET:
-        raise HTTPException(status_code=403, detail="invalid secret")
+    # /cron/* transport stays query-param-only: this URI is registered
+    # verbatim in an external Cloud Scheduler job, outside this repo.
+    _sec.require_shared_secret(secret, FUNCTION_SECRET)
 
     try:
         now = datetime.now(timezone.utc)
@@ -757,8 +779,9 @@ async def cron_refresh_social_analytics(secret: Optional[str] = None):
     """Analytics were previously only ever fetched once, right at publish
     time, so numbers went stale immediately. Re-fetches for everything
     published in the last 30 days."""
-    if FUNCTION_SECRET and secret != FUNCTION_SECRET:
-        raise HTTPException(status_code=403, detail="invalid secret")
+    # /cron/* transport stays query-param-only: this URI is registered
+    # verbatim in an external Cloud Scheduler job, outside this repo.
+    _sec.require_shared_secret(secret, FUNCTION_SECRET)
 
     cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
     try:
@@ -807,11 +830,20 @@ async def cron_refresh_social_analytics(secret: Optional[str] = None):
 
 @router.post("/cron/execute-autoposts")
 async def cron_execute_autoposts(secret: Optional[str] = None):
-    if FUNCTION_SECRET and secret != FUNCTION_SECRET:
-        raise HTTPException(status_code=403, detail="invalid secret")
+    # /cron/* transport stays query-param-only: this URI is registered
+    # verbatim in an external Cloud Scheduler job, outside this repo.
+    _sec.require_shared_secret(secret, FUNCTION_SECRET)
 
-    import xml.etree.ElementTree as ET
-    import urllib.request
+    # defusedxml disables external-entity/DTD resolution AND caps
+    # internal-entity expansion (billion-laughs / quadratic-blowup DoS) —
+    # stdlib xml.etree.ElementTree does neither by default. Combined with
+    # url_safety's SSRF guard + response size cap below, this closes both
+    # the "fetch an internal URL" and "feed us a malicious XML bomb" angles
+    # on this cron job, which fetches whatever URL a user saved with no
+    # validation at auto-post-creation time.
+    import defusedxml.ElementTree as ET
+
+    from app.core.url_safety import UnsafeURLError, safe_get
 
     try:
         res = supabase.table("social_auto_posts").select("*").eq("active", True).execute()
@@ -823,9 +855,12 @@ async def cron_execute_autoposts(secret: Optional[str] = None):
     triggered_count = 0
     for auto in autoposts:
         try:
-            req = urllib.request.Request(auto["url"], headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req, timeout=5) as response:
-                xml_data = response.read()
+            try:
+                resp = await safe_get(auto["url"], headers={"User-Agent": "Mozilla/5.0"}, timeout=5.0)
+            except UnsafeURLError as exc:
+                logger.warning("autopost %s has an unsafe feed URL, skipping: %s", auto["id"], exc)
+                continue
+            xml_data = resp.content
             root = ET.fromstring(xml_data)
 
             # Grab the latest item
