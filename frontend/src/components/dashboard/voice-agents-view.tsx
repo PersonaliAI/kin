@@ -27,14 +27,51 @@ import {
   type VoiceAgentLlmProvider,
   type VoiceAgentSttProvider,
   type VoiceAgentTtsProvider,
+  type VoiceAgentMode,
+  type VoiceAgentRealtimeProvider,
   type VoiceAgentUseCase,
 } from "@/lib/backend";
 
 const LLM_PROVIDERS: VoiceAgentLlmProvider[] = ["openai", "anthropic", "google", "groq", "xai"];
 const STT_PROVIDERS: VoiceAgentSttProvider[] = ["deepgram", "google", "azure", "assemblyai", "openai"];
-const TTS_PROVIDERS: VoiceAgentTtsProvider[] = ["elevenlabs", "cartesia", "rime", "lmnt", "azure"];
+const TTS_PROVIDERS: VoiceAgentTtsProvider[] = ["elevenlabs", "cartesia", "rime", "lmnt", "azure", "google"];
+const MODES: VoiceAgentMode[] = ["pipeline", "realtime"];
+const REALTIME_PROVIDERS: VoiceAgentRealtimeProvider[] = ["google", "openai"];
 const USE_CASES: VoiceAgentUseCase[] = ["sales", "receptionist", "custom"];
 const AVAILABLE_TOOLS = ["create_calendar_event", "check_calendar_availability", "create_lead"];
+
+// Speech-to-speech models — audio in, audio out directly, no separate
+// STT/TTS. Model ids and defaults confirmed against the installed LiveKit
+// plugins (google.realtime.RealtimeModel / openai.realtime.RealtimeModel)
+// as of this writing — check each provider's docs before assuming a newer
+// model id works, these move fast.
+const DEFAULT_REALTIME_MODEL_BY_PROVIDER: Record<VoiceAgentRealtimeProvider, string> = {
+  google: "gemini-3.1-flash-live-preview",
+  openai: "gpt-realtime",
+};
+
+const REALTIME_MODELS: Record<VoiceAgentRealtimeProvider, SelectOption[]> = {
+  google: [
+    { value: "gemini-3.1-flash-live-preview", label: "gemini-3.1-flash-live-preview (Recommended)" },
+    { value: "gemini-2.5-flash", label: "gemini-2.5-flash" },
+    { value: "custom", label: "Custom model..." },
+  ],
+  openai: [
+    { value: "gpt-realtime", label: "gpt-realtime (Recommended)" },
+    { value: "custom", label: "Custom model..." },
+  ],
+};
+
+const REALTIME_VOICES: Record<VoiceAgentRealtimeProvider, SelectOption[]> = {
+  google: [
+    { value: "Puck", label: "Puck (Recommended)" },
+    { value: "custom", label: "Custom voice..." },
+  ],
+  openai: [
+    { value: "marin", label: "marin (Recommended)" },
+    { value: "custom", label: "Custom voice..." },
+  ],
+};
 
 const DEFAULT_MODEL_BY_PROVIDER: Record<VoiceAgentLlmProvider, string> = {
   openai: "gpt-4o-mini",
@@ -93,6 +130,9 @@ const RECOMMENDED_VOICES: Record<VoiceAgentTtsProvider, SelectOption[]> = {
   azure: [
     { value: "custom", label: "Custom voice ID..." },
   ],
+  google: [
+    { value: "custom", label: "Custom voice ID..." },
+  ],
 };
 
 type FormState = {
@@ -100,17 +140,25 @@ type FormState = {
   use_case: VoiceAgentUseCase;
   persona: string;
   greeting: string;
+  mode: VoiceAgentMode;
   llm_provider: VoiceAgentLlmProvider;
   llm_model: string;
   stt_provider: VoiceAgentSttProvider;
   tts_provider: VoiceAgentTtsProvider;
   tts_voice: string;
+  // Realtime mode's own provider/model/voice — kept separate from the
+  // pipeline fields above so switching tabs back and forth doesn't lose
+  // either configuration.
+  realtime_provider: VoiceAgentRealtimeProvider;
+  realtime_model: string;
+  realtime_voice: string;
   tools: string[];
   // BYOK — each agent uses its own owner's provider keys, entered here.
   // Blank on edit means "leave whatever's already saved unchanged".
   llm_api_key: string;
   stt_api_key: string;
   tts_api_key: string;
+  realtime_api_key: string;
 };
 
 const EMPTY_FORM: FormState = {
@@ -118,15 +166,20 @@ const EMPTY_FORM: FormState = {
   use_case: "sales",
   persona: "",
   greeting: "",
+  mode: "pipeline",
   llm_provider: "openai",
   llm_model: DEFAULT_MODEL_BY_PROVIDER.openai,
   stt_provider: "deepgram",
   tts_provider: "cartesia",
   tts_voice: "",
+  realtime_provider: "google",
+  realtime_model: DEFAULT_REALTIME_MODEL_BY_PROVIDER.google,
+  realtime_voice: "",
   tools: [],
   llm_api_key: "",
   stt_api_key: "",
   tts_api_key: "",
+  realtime_api_key: "",
 };
 
 // Providers whose BYOK field isn't a plain API key string — shown as a
@@ -149,6 +202,7 @@ export function VoiceAgentsView() {
 
   const useCaseOptions: SelectOption[] = USE_CASES.map((uc) => ({ value: uc, label: t(`useCase.${uc}`) }));
   const llmProviderOptions: SelectOption[] = LLM_PROVIDERS.map((p) => ({ value: p, label: t(`llmProvider.${p}`) }));
+  const realtimeProviderOptions: SelectOption[] = REALTIME_PROVIDERS.map((p) => ({ value: p, label: t(`llmProvider.${p}`) }));
   const sttProviderOptions: SelectOption[] = STT_PROVIDERS.map((p) => ({ value: p, label: t(`sttProvider.${p}`) }));
   const ttsProviderOptions: SelectOption[] = TTS_PROVIDERS.map((p) => ({ value: p, label: t(`ttsProvider.${p}`) }));
   const telephonyProviderOptions: SelectOption[] = [
@@ -203,20 +257,27 @@ export function VoiceAgentsView() {
 
   function openEdit(agent: VoiceAgent) {
     setEditingId(agent.id);
+    const isRealtime = agent.mode === "realtime";
     setForm({
+      ...EMPTY_FORM,
       name: agent.name,
       use_case: agent.use_case,
       persona: agent.persona,
       greeting: agent.greeting || "",
-      llm_provider: agent.llm_provider,
-      llm_model: agent.llm_model,
+      mode: agent.mode,
+      // Realtime config lives in the same llm_provider/llm_model/tts_voice
+      // columns as pipeline mode (see kin-backend's voice_agents schema) —
+      // split back out into the form's separate realtime_* fields here so
+      // switching tabs doesn't clobber either configuration.
+      llm_provider: isRealtime ? EMPTY_FORM.llm_provider : agent.llm_provider,
+      llm_model: isRealtime ? EMPTY_FORM.llm_model : agent.llm_model,
       stt_provider: agent.stt_provider,
       tts_provider: agent.tts_provider,
-      tts_voice: agent.tts_voice || "",
+      tts_voice: isRealtime ? "" : agent.tts_voice || "",
+      realtime_provider: isRealtime ? (agent.llm_provider as VoiceAgentRealtimeProvider) : EMPTY_FORM.realtime_provider,
+      realtime_model: isRealtime ? agent.llm_model : EMPTY_FORM.realtime_model,
+      realtime_voice: isRealtime ? agent.tts_voice || "" : "",
       tools: agent.tools || [],
-      llm_api_key: "",
-      stt_api_key: "",
-      tts_api_key: "",
     });
     setErrorMsg(null);
     setFormOpen(true);
@@ -235,21 +296,44 @@ export function VoiceAgentsView() {
 
     setActionLoading(true);
     setErrorMsg(null);
-    const body = {
-      name: form.name.trim(),
-      use_case: form.use_case,
-      persona: form.persona.trim(),
-      greeting: form.greeting.trim() || undefined,
-      llm_provider: form.llm_provider,
-      llm_model: form.llm_model.trim() || DEFAULT_MODEL_BY_PROVIDER[form.llm_provider],
-      stt_provider: form.stt_provider,
-      tts_provider: form.tts_provider,
-      tts_voice: form.tts_voice.trim() || undefined,
-      tools: form.tools,
-      llm_api_key: form.llm_api_key.trim() || undefined,
-      stt_api_key: form.stt_api_key.trim() || undefined,
-      tts_api_key: form.tts_api_key.trim() || undefined,
-    };
+    // Realtime mode stores its provider/model/voice/key in the same
+    // llm_provider/llm_model/tts_voice/llm_api_key fields pipeline mode
+    // uses (see kin-backend's voice_agents schema) — stt/tts fields are
+    // simply omitted, the backend ignores them for a realtime-mode agent.
+    const body =
+      form.mode === "realtime"
+        ? {
+            name: form.name.trim(),
+            use_case: form.use_case,
+            persona: form.persona.trim(),
+            greeting: form.greeting.trim() || undefined,
+            mode: form.mode,
+            llm_provider: form.realtime_provider,
+            llm_model: form.realtime_model.trim() || DEFAULT_REALTIME_MODEL_BY_PROVIDER[form.realtime_provider],
+            // Unused in realtime mode — sent as-is so the request still
+            // matches VoiceAgentCreateBody's shape; the backend ignores them.
+            stt_provider: form.stt_provider,
+            tts_provider: form.tts_provider,
+            tts_voice: form.realtime_voice.trim() || undefined,
+            tools: form.tools,
+            llm_api_key: form.realtime_api_key.trim() || undefined,
+          }
+        : {
+            name: form.name.trim(),
+            use_case: form.use_case,
+            persona: form.persona.trim(),
+            greeting: form.greeting.trim() || undefined,
+            mode: form.mode,
+            llm_provider: form.llm_provider,
+            llm_model: form.llm_model.trim() || DEFAULT_MODEL_BY_PROVIDER[form.llm_provider],
+            stt_provider: form.stt_provider,
+            tts_provider: form.tts_provider,
+            tts_voice: form.tts_voice.trim() || undefined,
+            tools: form.tools,
+            llm_api_key: form.llm_api_key.trim() || undefined,
+            stt_api_key: form.stt_api_key.trim() || undefined,
+            tts_api_key: form.tts_api_key.trim() || undefined,
+          };
 
     try {
       if (editingId) {
@@ -441,7 +525,9 @@ export function VoiceAgentsView() {
                           )}
                         </span>
                         <span>
-                          {t("brainSummary", { llm: agent.llm_provider, stt: agent.stt_provider, tts: agent.tts_provider })}
+                          {agent.mode === "realtime"
+                            ? t("brainSummaryRealtime", { llm: agent.llm_provider })
+                            : t("brainSummary", { llm: agent.llm_provider, stt: agent.stt_provider, tts: agent.tts_provider })}
                         </span>
                       </div>
                     </div>
@@ -593,86 +679,112 @@ export function VoiceAgentsView() {
           </div>
 
           <div className="pt-3 border-t border-border/50">
-            <span className="text-xs font-semibold text-foreground/80 block mb-3">{t("formDialog.brainSection")}</span>
-            <div className="space-y-4">
-              {/* LLM config */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Field label={t("formDialog.llmProviderLabel")}>
-                  <Select
-                    value={form.llm_provider}
-                    onChange={(v) => {
-                      const provider = v as VoiceAgentLlmProvider;
-                      setForm((f) => ({ ...f, llm_provider: provider, llm_model: DEFAULT_MODEL_BY_PROVIDER[provider] }));
-                    }}
-                    options={llmProviderOptions}
+            <span className="text-xs font-semibold text-foreground/80 block mb-1">{t("formDialog.brainSection")}</span>
+            <p className="text-[11px] text-muted-foreground mb-3">{t("formDialog.modeHint")}</p>
+
+            {/* Mode tabs */}
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              {MODES.map((m) => {
+                const active = form.mode === m;
+                return (
+                  <button
+                    key={m}
+                    type="button"
                     disabled={actionLoading}
-                  />
-                </Field>
-                <Field label={t("formDialog.llmModelLabel")}>
-                  <Select
-                    value={RECOMMENDED_MODELS[form.llm_provider].some(m => m.value === form.llm_model) ? form.llm_model : "custom"}
-                    onChange={(v) => {
-                      if (v === "custom") {
-                        setForm((f) => ({ ...f, llm_model: "" }));
-                      } else {
-                        setForm((f) => ({ ...f, llm_model: v }));
+                    onClick={() =>
+                      setForm((f) => ({
+                        ...f,
+                        mode: m,
+                        // Realtime is Google/OpenAI only — jump to a valid
+                        // provider if the pipeline tab had a different one.
+                        realtime_provider:
+                          m === "realtime" && !REALTIME_PROVIDERS.includes(f.llm_provider as VoiceAgentRealtimeProvider)
+                            ? f.realtime_provider
+                            : m === "realtime"
+                              ? (f.llm_provider as VoiceAgentRealtimeProvider)
+                              : f.realtime_provider,
+                      }))
+                    }
+                    className={`rounded-xl border p-3 text-left transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
+                      active ? "border-foreground/30 bg-muted/60 ring-1 ring-foreground/10" : "border-border hover:border-foreground/20"
+                    }`}
+                  >
+                    <span className="text-xs font-semibold block">{t(`mode.${m}`)}</span>
+                    <span className="text-[11px] text-muted-foreground block mt-0.5">
+                      {t(m === "realtime" ? "formDialog.modeRealtimeDescription" : "formDialog.modePipelineDescription")}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {form.mode === "realtime" ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Field label={t("formDialog.realtimeProviderLabel")}>
+                    <Select
+                      value={form.realtime_provider}
+                      onChange={(v) => {
+                        const provider = v as VoiceAgentRealtimeProvider;
+                        setForm((f) => ({
+                          ...f,
+                          realtime_provider: provider,
+                          realtime_model: DEFAULT_REALTIME_MODEL_BY_PROVIDER[provider],
+                          realtime_voice: "",
+                        }));
+                      }}
+                      options={realtimeProviderOptions}
+                      disabled={actionLoading}
+                    />
+                  </Field>
+                  <Field label={t("formDialog.realtimeModelLabel")}>
+                    <Select
+                      value={
+                        REALTIME_MODELS[form.realtime_provider].some((m) => m.value === form.realtime_model)
+                          ? form.realtime_model
+                          : "custom"
                       }
-                    }}
-                    options={RECOMMENDED_MODELS[form.llm_provider]}
+                      onChange={(v) =>
+                        setForm((f) => ({ ...f, realtime_model: v === "custom" ? "" : v }))
+                      }
+                      options={REALTIME_MODELS[form.realtime_provider]}
+                      disabled={actionLoading}
+                    />
+                    {!REALTIME_MODELS[form.realtime_provider].some(
+                      (m) => m.value === form.realtime_model && m.value !== "custom",
+                    ) && (
+                      <div className="mt-2">
+                        <input
+                          value={form.realtime_model}
+                          onChange={(e) => setForm((f) => ({ ...f, realtime_model: e.target.value }))}
+                          placeholder="e.g. gemini-2.5-flash"
+                          disabled={actionLoading}
+                          className={inputCls}
+                        />
+                      </div>
+                    )}
+                  </Field>
+                </div>
+                <Field label={t("formDialog.realtimeVoiceLabel")} hint={t("formDialog.ttsVoiceHint")}>
+                  <Select
+                    value={
+                      REALTIME_VOICES[form.realtime_provider].some((v) => v.value === form.realtime_voice)
+                        ? form.realtime_voice
+                        : "custom"
+                    }
+                    onChange={(v) =>
+                      setForm((f) => ({ ...f, realtime_voice: v === "custom" ? "" : v }))
+                    }
+                    options={REALTIME_VOICES[form.realtime_provider]}
                     disabled={actionLoading}
                   />
-                  {(!RECOMMENDED_MODELS[form.llm_provider].some(m => m.value === form.llm_model && m.value !== "custom")) && (
+                  {!REALTIME_VOICES[form.realtime_provider].some(
+                    (v) => v.value === form.realtime_voice && v.value !== "custom",
+                  ) && (
                     <div className="mt-2">
                       <input
-                        value={form.llm_model}
-                        onChange={(e) => setForm((f) => ({ ...f, llm_model: e.target.value }))}
-                        placeholder="e.g. gpt-4o"
-                        disabled={actionLoading}
-                        className={inputCls}
-                      />
-                    </div>
-                  )}
-                </Field>
-              </div>
-
-              {/* STT config */}
-              <Field label={t("formDialog.sttProviderLabel")}>
-                <Select
-                  value={form.stt_provider}
-                  onChange={(v) => setForm((f) => ({ ...f, stt_provider: v as VoiceAgentSttProvider }))}
-                  options={sttProviderOptions}
-                  disabled={actionLoading}
-                />
-              </Field>
-
-              {/* TTS config */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Field label={t("formDialog.ttsProviderLabel")}>
-                  <Select
-                    value={form.tts_provider}
-                    onChange={(v) => setForm((f) => ({ ...f, tts_provider: v as VoiceAgentTtsProvider }))}
-                    options={ttsProviderOptions}
-                    disabled={actionLoading}
-                  />
-                </Field>
-                <Field label={t("formDialog.ttsVoiceLabel")} hint={t("formDialog.ttsVoiceHint")}>
-                  <Select
-                    value={(RECOMMENDED_VOICES[form.tts_provider] || []).some(v => v.value === form.tts_voice) ? form.tts_voice : "custom"}
-                    onChange={(v) => {
-                      if (v === "custom") {
-                        setForm((f) => ({ ...f, tts_voice: "" }));
-                      } else {
-                        setForm((f) => ({ ...f, tts_voice: v }));
-                      }
-                    }}
-                    options={RECOMMENDED_VOICES[form.tts_provider] || [{ value: "custom", label: "Custom voice ID..." }]}
-                    disabled={actionLoading}
-                  />
-                  {(!RECOMMENDED_VOICES[form.tts_provider]?.some(v => v.value === form.tts_voice && v.value !== "custom")) && (
-                    <div className="mt-2">
-                      <input
-                        value={form.tts_voice}
-                        onChange={(e) => setForm((f) => ({ ...f, tts_voice: e.target.value }))}
+                        value={form.realtime_voice}
+                        onChange={(e) => setForm((f) => ({ ...f, realtime_voice: e.target.value }))}
                         placeholder={t("formDialog.ttsVoicePlaceholder")}
                         disabled={actionLoading}
                         className={inputCls}
@@ -680,71 +792,180 @@ export function VoiceAgentsView() {
                     </div>
                   )}
                 </Field>
+
+                <div className="rounded-xl border border-border/70 bg-muted/20 p-3.5 space-y-2">
+                  <Field
+                    label={`${form.realtime_provider.toUpperCase()} API Key`}
+                    hint={editingAgent?.has_llm_api_key ? t("formDialog.keySavedHint") : undefined}
+                  >
+                    <input
+                      type="password"
+                      value={form.realtime_api_key}
+                      onChange={(e) => setForm((f) => ({ ...f, realtime_api_key: e.target.value }))}
+                      placeholder={editingAgent?.has_llm_api_key ? t("formDialog.keyPlaceholderSaved") : t("formDialog.keyPlaceholderEmpty")}
+                      disabled={actionLoading}
+                      className={inputCls}
+                      autoComplete="off"
+                    />
+                  </Field>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-4">
+                {/* LLM config */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Field label={t("formDialog.llmProviderLabel")}>
+                    <Select
+                      value={form.llm_provider}
+                      onChange={(v) => {
+                        const provider = v as VoiceAgentLlmProvider;
+                        setForm((f) => ({ ...f, llm_provider: provider, llm_model: DEFAULT_MODEL_BY_PROVIDER[provider] }));
+                      }}
+                      options={llmProviderOptions}
+                      disabled={actionLoading}
+                    />
+                  </Field>
+                  <Field label={t("formDialog.llmModelLabel")}>
+                    <Select
+                      value={RECOMMENDED_MODELS[form.llm_provider].some(m => m.value === form.llm_model) ? form.llm_model : "custom"}
+                      onChange={(v) => {
+                        if (v === "custom") {
+                          setForm((f) => ({ ...f, llm_model: "" }));
+                        } else {
+                          setForm((f) => ({ ...f, llm_model: v }));
+                        }
+                      }}
+                      options={RECOMMENDED_MODELS[form.llm_provider]}
+                      disabled={actionLoading}
+                    />
+                    {(!RECOMMENDED_MODELS[form.llm_provider].some(m => m.value === form.llm_model && m.value !== "custom")) && (
+                      <div className="mt-2">
+                        <input
+                          value={form.llm_model}
+                          onChange={(e) => setForm((f) => ({ ...f, llm_model: e.target.value }))}
+                          placeholder="e.g. gpt-4o"
+                          disabled={actionLoading}
+                          className={inputCls}
+                        />
+                      </div>
+                    )}
+                  </Field>
+                </div>
+
+                {/* STT config */}
+                <Field label={t("formDialog.sttProviderLabel")}>
+                  <Select
+                    value={form.stt_provider}
+                    onChange={(v) => setForm((f) => ({ ...f, stt_provider: v as VoiceAgentSttProvider }))}
+                    options={sttProviderOptions}
+                    disabled={actionLoading}
+                  />
+                </Field>
+
+                {/* TTS config */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Field label={t("formDialog.ttsProviderLabel")}>
+                    <Select
+                      value={form.tts_provider}
+                      onChange={(v) => setForm((f) => ({ ...f, tts_provider: v as VoiceAgentTtsProvider }))}
+                      options={ttsProviderOptions}
+                      disabled={actionLoading}
+                    />
+                  </Field>
+                  <Field label={t("formDialog.ttsVoiceLabel")} hint={t("formDialog.ttsVoiceHint")}>
+                    <Select
+                      value={(RECOMMENDED_VOICES[form.tts_provider] || []).some(v => v.value === form.tts_voice) ? form.tts_voice : "custom"}
+                      onChange={(v) => {
+                        if (v === "custom") {
+                          setForm((f) => ({ ...f, tts_voice: "" }));
+                        } else {
+                          setForm((f) => ({ ...f, tts_voice: v }));
+                        }
+                      }}
+                      options={RECOMMENDED_VOICES[form.tts_provider] || [{ value: "custom", label: "Custom voice ID..." }]}
+                      disabled={actionLoading}
+                    />
+                    {(!RECOMMENDED_VOICES[form.tts_provider]?.some(v => v.value === form.tts_voice && v.value !== "custom")) && (
+                      <div className="mt-2">
+                        <input
+                          value={form.tts_voice}
+                          onChange={(e) => setForm((f) => ({ ...f, tts_voice: e.target.value }))}
+                          placeholder={t("formDialog.ttsVoicePlaceholder")}
+                          disabled={actionLoading}
+                          className={inputCls}
+                        />
+                      </div>
+                    )}
+                  </Field>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* API Keys Section */}
-          <div className="pt-3 border-t border-border/50">
-            <span className="text-xs font-semibold text-foreground/80 block mb-1">Provider API Keys</span>
-            <p className="text-[11px] text-muted-foreground mb-3">{t("formDialog.keysSectionHint")}</p>
+          {/* API Keys Section — pipeline mode only; realtime's single key
+              field lives inline in the realtime panel above. */}
+          {form.mode === "pipeline" && (
+            <div className="pt-3 border-t border-border/50">
+              <span className="text-xs font-semibold text-foreground/80 block mb-1">Provider API Keys</span>
+              <p className="text-[11px] text-muted-foreground mb-3">{t("formDialog.keysSectionHint")}</p>
 
-            <div className="space-y-3">
-              {/* LLM Key */}
-              <div className="rounded-xl border border-border/70 bg-muted/20 p-3.5 space-y-2">
-                <Field
-                  label={`${form.llm_provider.toUpperCase()} API Key`}
-                  hint={editingAgent?.has_llm_api_key ? t("formDialog.keySavedHint") : undefined}
-                >
-                  <input
-                    type="password"
-                    value={form.llm_api_key}
-                    onChange={(e) => setForm((f) => ({ ...f, llm_api_key: e.target.value }))}
-                    placeholder={editingAgent?.has_llm_api_key ? t("formDialog.keyPlaceholderSaved") : t("formDialog.keyPlaceholderEmpty")}
-                    disabled={actionLoading}
-                    className={inputCls}
-                    autoComplete="off"
-                  />
-                </Field>
-              </div>
+              <div className="space-y-3">
+                {/* LLM Key */}
+                <div className="rounded-xl border border-border/70 bg-muted/20 p-3.5 space-y-2">
+                  <Field
+                    label={`${form.llm_provider.toUpperCase()} API Key`}
+                    hint={editingAgent?.has_llm_api_key ? t("formDialog.keySavedHint") : undefined}
+                  >
+                    <input
+                      type="password"
+                      value={form.llm_api_key}
+                      onChange={(e) => setForm((f) => ({ ...f, llm_api_key: e.target.value }))}
+                      placeholder={editingAgent?.has_llm_api_key ? t("formDialog.keyPlaceholderSaved") : t("formDialog.keyPlaceholderEmpty")}
+                      disabled={actionLoading}
+                      className={inputCls}
+                      autoComplete="off"
+                    />
+                  </Field>
+                </div>
 
-              {/* STT Key */}
-              <div className="rounded-xl border border-border/70 bg-muted/20 p-3.5 space-y-2">
-                <Field
-                  label={`${form.stt_provider.toUpperCase()} API Key`}
-                  hint={KEY_FORMAT_HINTS[form.stt_provider] ?? (editingAgent?.has_stt_api_key ? t("formDialog.keySavedHint") : undefined)}
-                >
-                  <input
-                    type="password"
-                    value={form.stt_api_key}
-                    onChange={(e) => setForm((f) => ({ ...f, stt_api_key: e.target.value }))}
-                    placeholder={editingAgent?.has_stt_api_key ? t("formDialog.keyPlaceholderSaved") : t("formDialog.keyPlaceholderEmpty")}
-                    disabled={actionLoading}
-                    className={inputCls}
-                    autoComplete="off"
-                  />
-                </Field>
-              </div>
+                {/* STT Key */}
+                <div className="rounded-xl border border-border/70 bg-muted/20 p-3.5 space-y-2">
+                  <Field
+                    label={`${form.stt_provider.toUpperCase()} API Key`}
+                    hint={KEY_FORMAT_HINTS[form.stt_provider] ?? (editingAgent?.has_stt_api_key ? t("formDialog.keySavedHint") : undefined)}
+                  >
+                    <input
+                      type="password"
+                      value={form.stt_api_key}
+                      onChange={(e) => setForm((f) => ({ ...f, stt_api_key: e.target.value }))}
+                      placeholder={editingAgent?.has_stt_api_key ? t("formDialog.keyPlaceholderSaved") : t("formDialog.keyPlaceholderEmpty")}
+                      disabled={actionLoading}
+                      className={inputCls}
+                      autoComplete="off"
+                    />
+                  </Field>
+                </div>
 
-              {/* TTS Key */}
-              <div className="rounded-xl border border-border/70 bg-muted/20 p-3.5 space-y-2">
-                <Field
-                  label={`${form.tts_provider.toUpperCase()} API Key`}
-                  hint={KEY_FORMAT_HINTS[form.tts_provider] ?? (editingAgent?.has_tts_api_key ? t("formDialog.keySavedHint") : undefined)}
-                >
-                  <input
-                    type="password"
-                    value={form.tts_api_key}
-                    onChange={(e) => setForm((f) => ({ ...f, tts_api_key: e.target.value }))}
-                    placeholder={editingAgent?.has_tts_api_key ? t("formDialog.keyPlaceholderSaved") : t("formDialog.keyPlaceholderEmpty")}
-                    disabled={actionLoading}
-                    className={inputCls}
-                    autoComplete="off"
-                  />
-                </Field>
+                {/* TTS Key */}
+                <div className="rounded-xl border border-border/70 bg-muted/20 p-3.5 space-y-2">
+                  <Field
+                    label={`${form.tts_provider.toUpperCase()} API Key`}
+                    hint={KEY_FORMAT_HINTS[form.tts_provider] ?? (editingAgent?.has_tts_api_key ? t("formDialog.keySavedHint") : undefined)}
+                  >
+                    <input
+                      type="password"
+                      value={form.tts_api_key}
+                      onChange={(e) => setForm((f) => ({ ...f, tts_api_key: e.target.value }))}
+                      placeholder={editingAgent?.has_tts_api_key ? t("formDialog.keyPlaceholderSaved") : t("formDialog.keyPlaceholderEmpty")}
+                      disabled={actionLoading}
+                      className={inputCls}
+                      autoComplete="off"
+                    />
+                  </Field>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           <div className="pt-3 border-t border-border/50">
             <span className="text-xs font-semibold text-foreground/80 block mb-2">{t("formDialog.toolsSection")}</span>

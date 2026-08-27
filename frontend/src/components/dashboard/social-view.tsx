@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { 
   Share2, Plus, Calendar, Clock, Send, BarChart3, Settings, Link, Sparkles, 
   Trash2, Radio, Check, X, RefreshCw, Layers, MessageSquare, AlertCircle, 
@@ -14,6 +13,7 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogFooter, Field, inputCls } from "@/components/dashboard/dialog";
 import { Select } from "@/components/ui/select";
+import { FloatingPopover } from "@/components/ui/floating-popover";
 import {
   socialApi,
   type SocialPost,
@@ -76,6 +76,7 @@ const LOGOS: Record<string, React.ReactNode> = {
 // (kin-backend/social_providers/*.py).
 const MANUAL_CONNECT_FIELDS: Record<string, { key: string; label: string; placeholder?: string }[]> = {
   discord: [{ key: "webhook_url", label: "Channel webhook URL", placeholder: "https://discord.com/api/webhooks/..." }],
+  slack: [{ key: "webhook_url", label: "Incoming Webhook URL", placeholder: "https://hooks.slack.com/services/..." }],
   telegram: [
     { key: "chat_id", label: "Channel/chat id or @username" },
     { key: "api_key", label: "Bot token (optional — uses Kin's bot if blank)" },
@@ -122,95 +123,6 @@ const MANUAL_CONNECT_FIELDS: Record<string, { key: string; label: string; placeh
   ],
   farcaster: [{ key: "api_key", label: "Neynar signer_uuid" }],
 };
-
-// Renders `children` into document.body, positioned relative to `anchorRef`.
-// Needed because popovers inside the composer's independently-scrolling panes
-// would otherwise be clipped by their scroll-container's bounds (the recurring
-// "dropdowns/calendar cropped" bug) — a portal escapes that clipping entirely.
-function FloatingPopover({
-  open,
-  anchorRef,
-  onClose,
-  align = "left",
-  side = "bottom",
-  className,
-  children,
-}: {
-  open: boolean;
-  anchorRef: React.RefObject<HTMLElement | null>;
-  onClose: () => void;
-  align?: "left" | "right";
-  side?: "top" | "bottom";
-  className?: string;
-  children: React.ReactNode;
-}) {
-  const popRef = useRef<HTMLDivElement>(null);
-  const [style, setStyle] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function reposition() {
-      const anchor = anchorRef.current;
-      if (!anchor) return;
-      const rect = anchor.getBoundingClientRect();
-      const vh = window.innerHeight;
-      const vw = window.innerWidth;
-      const popWidth = popRef.current?.offsetWidth || 256;
-      let top: number;
-      let maxHeight: number;
-      if (side === "top") {
-        top = Math.max(8, rect.top - 8);
-        maxHeight = top - 8;
-      } else {
-        top = rect.bottom + 8;
-        maxHeight = vh - top - 8;
-      }
-      let left = align === "right" ? rect.right - popWidth : rect.left;
-      left = Math.min(Math.max(8, left), vw - popWidth - 8);
-      setStyle({ top, left, maxHeight: Math.max(120, maxHeight) });
-    }
-    reposition();
-    window.addEventListener("scroll", reposition, true);
-    window.addEventListener("resize", reposition);
-    function handleOutside(e: MouseEvent) {
-      if (
-        popRef.current &&
-        !popRef.current.contains(e.target as Node) &&
-        anchorRef.current &&
-        !anchorRef.current.contains(e.target as Node)
-      ) {
-        onClose();
-      }
-    }
-    document.addEventListener("mousedown", handleOutside);
-    return () => {
-      window.removeEventListener("scroll", reposition, true);
-      window.removeEventListener("resize", reposition);
-      document.removeEventListener("mousedown", handleOutside);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, align, side]);
-
-  if (!open || typeof document === "undefined") return null;
-
-  return createPortal(
-    <div
-      ref={popRef}
-      style={{
-        position: "fixed",
-        top: side === "top" ? undefined : style?.top,
-        bottom: side === "top" ? window.innerHeight - (style?.top ?? 0) : undefined,
-        left: style?.left ?? -9999,
-        maxHeight: style?.maxHeight,
-        visibility: style ? "visible" : "hidden",
-      }}
-      className={`z-[100] overflow-y-auto bg-card border border-border rounded-xl shadow-2xl animate-in fade-in ${className || ""}`}
-    >
-      {children}
-    </div>,
-    document.body
-  );
-}
 
 export function SocialView() {
   const t = useTranslations("dashboard.social");

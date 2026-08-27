@@ -212,7 +212,36 @@ def build_tts(provider: str, voice: Optional[str], api_key: Optional[str]):
     if provider == "azure":
         region, key = _split_azure_key(api_key or "")
         return azure.TTS(speech_key=key, speech_region=region, **({"voice": voice} if voice else {}))
+    if provider == "google":
+        # Same as Google STT — no simple API key, the BYOK field holds a
+        # pasted service-account JSON credential.
+        if not api_key:
+            raise ValueError("Google TTS requires a service-account JSON credential")
+        return google.TTS(credentials_info=json.loads(api_key), **({"voice_name": voice} if voice else {}))
     raise ValueError(f"Unsupported tts_provider: {provider}")
+
+
+def build_realtime(provider: str, model: str, voice: Optional[str], api_key: Optional[str]):
+    """Speech-to-speech models (audio in, audio out) — used instead of
+    build_stt/build_llm/build_tts entirely when a voice agent's mode is
+    "realtime" (see kin-backend's VOICE_AGENT_REALTIME_PROVIDERS). Passed as
+    AgentSession(llm=...) same as a regular LLM — LiveKit's AgentSession
+    accepts either interchangeably."""
+    if provider == "google":
+        kwargs: dict[str, Any] = {"api_key": api_key}
+        if model:
+            kwargs["model"] = model
+        if voice:
+            kwargs["voice"] = voice
+        return google.realtime.RealtimeModel(**kwargs)
+    if provider == "openai":
+        kwargs = {"api_key": api_key}
+        if model:
+            kwargs["model"] = model
+        if voice:
+            kwargs["voice"] = voice
+        return openai.realtime.RealtimeModel(**kwargs)
+    raise ValueError(f"Unsupported realtime provider: {provider}")
 
 
 def build_tools(voice_agent_id: str, enabled_tool_names: list[str]) -> list:
@@ -291,11 +320,20 @@ async def entrypoint(ctx: JobContext) -> None:
     )
     call_id = call_log["id"]
 
-    session: AgentSession = AgentSession(
-        stt=build_stt(config["stt_provider"], config.get("stt_api_key")),
-        llm=build_llm(config["llm_provider"], config["llm_model"], config.get("llm_api_key")),
-        tts=build_tts(config["tts_provider"], config.get("tts_voice"), config.get("tts_api_key")),
-    )
+    if config.get("mode") == "realtime":
+        # Speech-to-speech — no separate STT/TTS stage, so those config
+        # fields (and their BYOK keys) are unused here.
+        session: AgentSession = AgentSession(
+            llm=build_realtime(
+                config["llm_provider"], config["llm_model"], config.get("tts_voice"), config.get("llm_api_key")
+            ),
+        )
+    else:
+        session = AgentSession(
+            stt=build_stt(config["stt_provider"], config.get("stt_api_key")),
+            llm=build_llm(config["llm_provider"], config["llm_model"], config.get("llm_api_key")),
+            tts=build_tts(config["tts_provider"], config.get("tts_voice"), config.get("tts_api_key")),
+        )
 
     transcript: list[dict[str, Any]] = []
 

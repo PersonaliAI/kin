@@ -939,6 +939,7 @@
       "loading": "Loading voice agents...",
       "noNumber": "No phone number yet",
       "brainSummary": "{llm} · {stt} · {tts}",
+      "brainSummaryRealtime": "{llm} (realtime)",
       "connectNumber": "Connect Number",
       "testCall": "Test Call",
       "testCallPrompt": "Phone number to call (with country code, e.g. +14155551234):",
@@ -992,7 +993,12 @@
         "cartesia": "Cartesia",
         "rime": "Rime",
         "lmnt": "LMNT",
-        "azure": "Azure"
+        "azure": "Azure",
+        "google": "Google"
+      },
+      "mode": {
+        "pipeline": "Pipeline",
+        "realtime": "Realtime"
       },
       "telephonyProvider": {
         "twilio_managed": "Twilio",
@@ -1019,6 +1025,13 @@
         "greetingHint": "The exact first line the agent opens the call with. Leave blank to let it improvise.",
         "greetingPlaceholder": "Hi, this is Jordan from Acme — got a minute?",
         "brainSection": "Voice & Brain",
+        "modeLabel": "Voice engine",
+        "modeHint": "Realtime models handle audio directly, no separate speech-to-text/text-to-speech stage — faster and simpler, but limited to Google or OpenAI and can't mix providers.",
+        "modePipelineDescription": "Speech-to-text, LLM, and text-to-speech as separate stages — mix any providers.",
+        "modeRealtimeDescription": "One speech-to-speech model handles audio directly.",
+        "realtimeProviderLabel": "Realtime provider",
+        "realtimeModelLabel": "Realtime model",
+        "realtimeVoiceLabel": "Voice",
         "llmProviderLabel": "LLM provider",
         "llmModelLabel": "LLM model",
         "sttProviderLabel": "Speech-to-text",

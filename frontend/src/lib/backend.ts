@@ -1009,7 +1009,12 @@ export const mcpApi = {
 
 export type VoiceAgentLlmProvider = "openai" | "anthropic" | "google" | "groq" | "xai";
 export type VoiceAgentSttProvider = "deepgram" | "google" | "azure" | "assemblyai" | "openai";
-export type VoiceAgentTtsProvider = "elevenlabs" | "cartesia" | "rime" | "lmnt" | "azure";
+export type VoiceAgentTtsProvider = "elevenlabs" | "cartesia" | "rime" | "lmnt" | "azure" | "google";
+// "pipeline" = separate STT/LLM/TTS stages (any provider mix). "realtime" =
+// a single speech-to-speech model (Gemini Live / OpenAI Realtime) — audio
+// in, audio out, no separate STT/TTS. See VoiceAgentRealtimeProvider.
+export type VoiceAgentMode = "pipeline" | "realtime";
+export type VoiceAgentRealtimeProvider = "google" | "openai";
 export type VoiceAgentUseCase = "sales" | "receptionist" | "custom";
 export type VoiceAgentTelephonyProvider = "twilio_managed" | "telnyx_managed" | "byo_sip";
 export type VoiceAgentStatus = "draft" | "provisioning" | "active" | "paused" | "error";
@@ -1021,6 +1026,7 @@ export type VoiceAgent = {
   use_case: VoiceAgentUseCase;
   persona: string;
   greeting: string | null;
+  mode: VoiceAgentMode;
   llm_provider: VoiceAgentLlmProvider;
   llm_model: string;
   stt_provider: VoiceAgentSttProvider;
@@ -1060,6 +1066,7 @@ export type VoiceAgentCreateBody = {
   use_case: VoiceAgentUseCase;
   persona: string;
   greeting?: string;
+  mode: VoiceAgentMode;
   llm_provider: VoiceAgentLlmProvider;
   llm_model: string;
   stt_provider: VoiceAgentSttProvider;

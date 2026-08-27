@@ -10,6 +10,10 @@ class VoiceAgentCreate(BaseModel):
     use_case: str = "custom"
     persona: str = ""
     greeting: Optional[str] = None
+    # "pipeline" = separate STT/LLM/TTS stages (any provider mix). "realtime"
+    # = a single speech-to-speech model (Gemini Live / OpenAI Realtime) —
+    # audio in, audio out, no separate STT/TTS. See VOICE_AGENT_REALTIME_PROVIDERS.
+    mode: str = "pipeline"
     llm_provider: str = "openai"
     llm_model: str = "gpt-4o-mini"
     stt_provider: str = "deepgram"
@@ -31,6 +35,7 @@ class VoiceAgentUpdate(BaseModel):
     use_case: Optional[str] = None
     persona: Optional[str] = None
     greeting: Optional[str] = None
+    mode: Optional[str] = None
     llm_provider: Optional[str] = None
     llm_model: Optional[str] = None
     stt_provider: Optional[str] = None

@@ -39,7 +39,12 @@ router = APIRouter()
 
 VOICE_AGENT_LLM_PROVIDERS = {"openai", "anthropic", "google", "groq", "xai"}
 VOICE_AGENT_STT_PROVIDERS = {"deepgram", "google", "azure", "assemblyai", "openai"}
-VOICE_AGENT_TTS_PROVIDERS = {"elevenlabs", "cartesia", "rime", "lmnt", "azure"}
+VOICE_AGENT_TTS_PROVIDERS = {"elevenlabs", "cartesia", "rime", "lmnt", "azure", "google"}
+# Speech-to-speech models (audio in, audio out) — no separate STT/TTS stage.
+# Only these two providers have a RealtimeModel in the installed LiveKit
+# plugins (see kin-voice-worker/worker.py's build_realtime()).
+VOICE_AGENT_REALTIME_PROVIDERS = {"google", "openai"}
+VOICE_AGENT_MODES = {"pipeline", "realtime"}
 VOICE_AGENT_USE_CASES = {"sales", "receptionist", "custom"}
 VOICE_AGENT_TELEPHONY_PROVIDERS = {"twilio_managed", "telnyx_managed", "byo_sip"}
 
@@ -47,11 +52,19 @@ VOICE_AGENT_TELEPHONY_PROVIDERS = {"twilio_managed", "telnyx_managed", "byo_sip"
 def _validate_voice_agent_fields(data: dict[str, Any]) -> None:
     if "use_case" in data and data["use_case"] not in VOICE_AGENT_USE_CASES:
         raise HTTPException(status_code=400, detail=f"use_case must be one of {sorted(VOICE_AGENT_USE_CASES)}")
-    if "llm_provider" in data and data["llm_provider"] not in VOICE_AGENT_LLM_PROVIDERS:
-        raise HTTPException(status_code=400, detail=f"llm_provider must be one of {sorted(VOICE_AGENT_LLM_PROVIDERS)}")
-    if "stt_provider" in data and data["stt_provider"] not in VOICE_AGENT_STT_PROVIDERS:
+    if "mode" in data and data["mode"] not in VOICE_AGENT_MODES:
+        raise HTTPException(status_code=400, detail=f"mode must be one of {sorted(VOICE_AGENT_MODES)}")
+    is_realtime = data.get("mode") == "realtime"
+    if "llm_provider" in data:
+        allowed = VOICE_AGENT_REALTIME_PROVIDERS if is_realtime else VOICE_AGENT_LLM_PROVIDERS
+        if data["llm_provider"] not in allowed:
+            raise HTTPException(status_code=400, detail=f"llm_provider must be one of {sorted(allowed)}")
+    # STT/TTS provider are unused in realtime mode — no need to validate them
+    # (the pipeline-mode form doesn't submit them when the realtime tab is
+    # active, so they just keep whatever value the row already had).
+    if "stt_provider" in data and not is_realtime and data["stt_provider"] not in VOICE_AGENT_STT_PROVIDERS:
         raise HTTPException(status_code=400, detail=f"stt_provider must be one of {sorted(VOICE_AGENT_STT_PROVIDERS)}")
-    if "tts_provider" in data and data["tts_provider"] not in VOICE_AGENT_TTS_PROVIDERS:
+    if "tts_provider" in data and not is_realtime and data["tts_provider"] not in VOICE_AGENT_TTS_PROVIDERS:
         raise HTTPException(status_code=400, detail=f"tts_provider must be one of {sorted(VOICE_AGENT_TTS_PROVIDERS)}")
 
 

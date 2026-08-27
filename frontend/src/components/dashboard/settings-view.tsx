@@ -648,7 +648,7 @@ function Section({
 const BYOK_PROVIDERS = ["openai", "anthropic", "openrouter"] as const;
 
 function ApiKeysSection() {
-  const t = useTranslations("dashboard.apiKeys");
+  const t = useTranslations("dashboard.settings.apiKeys");
   const [keys, setKeys] = useState<LlmKey[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -708,6 +708,11 @@ function ApiKeysSection() {
       setDeleting(false);
     }
   }
+
+  const providerOptions: SelectOption[] = BYOK_PROVIDERS.map((p) => ({
+    value: p,
+    label: t(`providers.${p}`),
+  }));
 
   return (
     <div className="space-y-4">
@@ -779,18 +784,12 @@ function ApiKeysSection() {
       <form onSubmit={handleSave} className="rounded-lg border border-border p-3 space-y-2.5">
         <p className="text-xs font-medium text-foreground/80">{t("addKey")}</p>
         <div className="grid grid-cols-1 sm:grid-cols-[140px_1fr] gap-2">
-          <select
+          <SearchSelect
             value={provider}
-            onChange={(e) => setProvider(e.target.value as (typeof BYOK_PROVIDERS)[number])}
+            onChange={(v) => setProvider(v as (typeof BYOK_PROVIDERS)[number])}
+            options={providerOptions}
             disabled={saving}
-            className={inputCls}
-          >
-            {BYOK_PROVIDERS.map((p) => (
-              <option key={p} value={p}>
-                {t(`providers.${p}`)}
-              </option>
-            ))}
-          </select>
+          />
           <input
             type="password"
             value={apiKey}

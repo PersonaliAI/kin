@@ -939,6 +939,7 @@
       "loading": "Chargement des agents vocaux...",
       "noNumber": "Pas encore de numéro de téléphone",
       "brainSummary": "{llm} · {stt} · {tts}",
+      "brainSummaryRealtime": "{llm} (temps réel)",
       "connectNumber": "Connecter un numéro",
       "testCall": "Appel test",
       "testCallPrompt": "Numéro à appeler (avec indicatif pays, ex. +14155551234) :",
@@ -992,7 +993,12 @@
         "cartesia": "Cartesia",
         "rime": "Rime",
         "lmnt": "LMNT",
-        "azure": "Azure"
+        "azure": "Azure",
+        "google": "Google"
+      },
+      "mode": {
+        "pipeline": "Pipeline",
+        "realtime": "Temps réel"
       },
       "telephonyProvider": {
         "twilio_managed": "Twilio",
@@ -1019,6 +1025,13 @@
         "greetingHint": "La première phrase exacte que l'agent utilise pour ouvrir l'appel. Laissez vide pour qu'il improvise.",
         "greetingPlaceholder": "Bonjour, c'est Jordan d'Acme — vous avez une minute ?",
         "brainSection": "Voix et cerveau",
+        "modeLabel": "Moteur vocal",
+        "modeHint": "Les modèles en temps réel traitent l'audio directement, sans étape séparée de reconnaissance/synthèse vocale — plus rapide et simple, mais limité à Google ou OpenAI, sans mélange de fournisseurs possible.",
+        "modePipelineDescription": "Reconnaissance vocale, LLM et synthèse vocale en étapes séparées — combinez n'importe quels fournisseurs.",
+        "modeRealtimeDescription": "Un seul modèle vocal-à-vocal traite l'audio directement.",
+        "realtimeProviderLabel": "Fournisseur temps réel",
+        "realtimeModelLabel": "Modèle temps réel",
+        "realtimeVoiceLabel": "Voix",
         "llmProviderLabel": "Fournisseur LLM",
         "llmModelLabel": "Modèle LLM",
         "sttProviderLabel": "Reconnaissance vocale",
