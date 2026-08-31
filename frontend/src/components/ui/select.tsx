@@ -260,7 +260,7 @@ export function Select({
         />
       </button>
 
-      <FloatingPopover open={open} anchorRef={triggerRef} onClose={() => setOpen(false)} className="py-1">
+      <FloatingPopover open={open} anchorRef={triggerRef} onClose={() => setOpen(false)} className="py-1" matchAnchorWidth>
         {options.map((opt) => {
           const isSelected = opt.value === value;
           return (

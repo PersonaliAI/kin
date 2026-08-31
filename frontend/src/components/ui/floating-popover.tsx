@@ -15,6 +15,7 @@ export function FloatingPopover({
   align = "left",
   side = "bottom",
   className,
+  matchAnchorWidth = false,
   children,
 }: {
   open: boolean;
@@ -23,10 +24,14 @@ export function FloatingPopover({
   align?: "left" | "right";
   side?: "top" | "bottom";
   className?: string;
+  /** Force the popover to the anchor's width instead of shrink-to-fit —
+   * for dropdowns (like Select) that should visually line up with their
+   * trigger button rather than shrinking to their narrowest option. */
+  matchAnchorWidth?: boolean;
   children: React.ReactNode;
 }) {
   const popRef = useRef<HTMLDivElement>(null);
-  const [style, setStyle] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
+  const [style, setStyle] = useState<{ top: number; left: number; maxHeight: number; width?: number } | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -36,7 +41,7 @@ export function FloatingPopover({
       const rect = anchor.getBoundingClientRect();
       const vh = window.innerHeight;
       const vw = window.innerWidth;
-      const popWidth = popRef.current?.offsetWidth || 256;
+      const popWidth = matchAnchorWidth ? rect.width : popRef.current?.offsetWidth || 256;
       let top: number;
       let maxHeight: number;
       if (side === "top") {
@@ -48,7 +53,7 @@ export function FloatingPopover({
       }
       let left = align === "right" ? rect.right - popWidth : rect.left;
       left = Math.min(Math.max(8, left), vw - popWidth - 8);
-      setStyle({ top, left, maxHeight: Math.max(120, maxHeight) });
+      setStyle({ top, left, maxHeight: Math.max(120, maxHeight), width: matchAnchorWidth ? rect.width : undefined });
     }
     reposition();
     window.addEventListener("scroll", reposition, true);
@@ -70,7 +75,7 @@ export function FloatingPopover({
       document.removeEventListener("mousedown", handleOutside);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, align, side]);
+  }, [open, align, side, matchAnchorWidth]);
 
   if (!open || typeof document === "undefined") return null;
 
@@ -83,6 +88,7 @@ export function FloatingPopover({
         bottom: side === "top" ? window.innerHeight - (style?.top ?? 0) : undefined,
         left: style?.left ?? -9999,
         maxHeight: style?.maxHeight,
+        width: style?.width,
         visibility: style ? "visible" : "hidden",
       }}
       className={`z-[100] overflow-y-auto bg-card border border-border rounded-xl shadow-2xl animate-in fade-in ${className || ""}`}
