@@ -41,7 +41,7 @@ coincurve==21.0.0
 # fallback exists in the spec — hence this second Nostr-only dependency.
 websockets==15.0.1
 openai==2.54.0
-anthropic==0.76.0
+anthropic==1.2.0
 # litellm — unified LLM-calling layer (app/core/llm.py). Stage 0 of a staged
 # migration off direct google-genai calls; existing google-genai/openai/anthropic
 # deps stay as-is for now, this is additive, not a cutover.
