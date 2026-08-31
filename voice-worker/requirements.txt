@@ -9,7 +9,7 @@ livekit-plugins-azure==1.6.10
 livekit-plugins-assemblyai==1.6.10
 livekit-plugins-elevenlabs==1.6.10
 livekit-plugins-cartesia==1.6.10
-livekit-plugins-rime==1.6.10
+livekit-plugins-rime==1.7.1
 livekit-plugins-lmnt==1.6.10
 httpx==0.28.1
 python-dotenv==1.2.2
