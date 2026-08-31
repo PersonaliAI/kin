@@ -28,7 +28,7 @@ openpyxl==3.1.5
 # [all] pulls in mammoth (docx), pdfminer.six/pdfplumber (pdf), python-pptx,
 # xlrd, etc. — pinned to the version verified in this environment.
 markitdown[all]==0.1.7
-cryptography==50.0.0
+cryptography==50.0.1
 croniter==6.2.2
 PyYAML==6.0.3
 Pillow==12.3.0
