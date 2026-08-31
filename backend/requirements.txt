@@ -29,7 +29,7 @@ openpyxl==3.1.5
 # xlrd, etc. — pinned to the version verified in this environment.
 markitdown[all]==0.1.7
 cryptography==50.0.0
-croniter==6.2.2
+croniter==6.2.4
 PyYAML==6.0.3
 Pillow==12.3.0
 # secp256k1 Schnorr signing for the Nostr social provider — Nostr events must
