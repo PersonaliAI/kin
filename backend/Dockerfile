@@ -22,5 +22,10 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy project
 COPY . /app/
 
+# Drop root privileges before running the app
+RUN groupadd --system appuser && useradd --system --gid appuser --uid 10001 appuser \
+    && chown -R appuser:appuser /app
+USER appuser
+
 # Run the application
 CMD exec uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080}

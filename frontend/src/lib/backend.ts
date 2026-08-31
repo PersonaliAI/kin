@@ -954,13 +954,7 @@ export type McpServer = {
   tools: McpTool[];
   oauth_flow_status: "none" | "awaiting_authorization" | "authorized";
   oauth_client_id?: string;
-  // TODO(security): kin-backend currently returns this in plaintext on read
-  // endpoints (app/routers/mcp.py, app/schemas/mcp.py — confirmed still
-  // present as of this writing). A backend fix to mask it — same pattern as
-  // has_llm_api_key on VoiceAgent below — is tracked separately. Once that
-  // lands, drop this field and switch call sites to a boolean flag instead
-  // of holding the raw secret in client state.
-  oauth_client_secret?: string;
+  has_oauth_client_secret?: boolean;
   oauth_auth_url?: string;
   oauth_token_url?: string;
   oauth_scopes?: string;
