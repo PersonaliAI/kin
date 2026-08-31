@@ -1006,7 +1006,7 @@
       },
       "telephonyProvider": {
         "twilio_managed": "Twilio (free, shared)",
-        "telnyx_managed": "Telnyx",
+        "telnyx_managed": "Telnyx (free, shared)",
         "twilio_byok": "Twilio (your own account)",
         "byo_sip": "Bring your own SIP trunk"
       },
@@ -1097,8 +1097,8 @@
       },
       "settingsDialog": {
         "dialogTitle": "Voice Agent settings",
-        "title": "Twilio (Voice Agent phone numbers)",
-        "description": "Bring your own Twilio account to buy and manage phone numbers for Voice Agents under your own billing — an alternative to Kin's free shared option.",
+        "title": "Twilio — bring your own account",
+        "description": "Optional. Buy and manage phone numbers for Voice Agents under your own Twilio billing, instead of Kin's free shared Twilio/Telnyx numbers. Bring-your-own-account isn't available for Telnyx yet.",
         "connected": "Connected",
         "savedNote": "Twilio credentials saved.",
         "remove": "Remove",

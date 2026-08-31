@@ -155,7 +155,7 @@ function ApiKeysSection() {
       )}
 
       <div className="flex items-end gap-2 mb-4">
-        <div className="flex-1">
+        <div className="flex-1 -mb-3">
           <Field label={t("nameLabel")}>
             <input
               value={name}
@@ -167,7 +167,8 @@ function ApiKeysSection() {
         </div>
         <Button
           type="button"
-          className="cursor-pointer mb-[1px]"
+          size="lg"
+          className="cursor-pointer"
           disabled={creating}
           onClick={create}
         >
@@ -306,9 +307,9 @@ function WebhooksSection() {
         </p>
       )}
 
-      <div className="flex items-end gap-2 mb-4">
-        <div className="flex-1">
-          <Field label={t("urlLabel")} hint={t("urlHint")}>
+      <div className="flex items-end gap-2">
+        <div className="flex-1 -mb-3">
+          <Field label={t("urlLabel")}>
             <input
               value={url}
               onChange={(e) => setUrl(e.target.value)}
@@ -319,7 +320,8 @@ function WebhooksSection() {
         </div>
         <Button
           type="button"
-          className="cursor-pointer mb-[1px]"
+          size="lg"
+          className="cursor-pointer"
           disabled={creating || !url.trim()}
           onClick={create}
         >
@@ -327,6 +329,7 @@ function WebhooksSection() {
           {t("addWebhook")}
         </Button>
       </div>
+      <p className="text-[11px] text-muted-foreground mt-1 mb-4">{t("urlHint")}</p>
 
       <ul className="divide-y divide-border">
         {(hooks ?? []).map((h) => (

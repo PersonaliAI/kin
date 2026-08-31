@@ -1006,7 +1006,7 @@
       },
       "telephonyProvider": {
         "twilio_managed": "Twilio (gratuito, condiviso)",
-        "telnyx_managed": "Telnyx",
+        "telnyx_managed": "Telnyx (gratuito, condiviso)",
         "twilio_byok": "Twilio (account proprio)",
         "byo_sip": "Trunk SIP proprio"
       },
@@ -1097,8 +1097,8 @@
       },
       "settingsDialog": {
         "dialogTitle": "Impostazioni Agenti Vocali",
-        "title": "Twilio (numeri di telefono per gli Agenti Vocali)",
-        "description": "Usa il tuo account Twilio per acquistare e gestire numeri di telefono per gli Agenti Vocali con la tua fatturazione — un'alternativa all'opzione gratuita condivisa di Kin.",
+        "title": "Twilio — usa il tuo account",
+        "description": "Facoltativo. Acquista e gestisci numeri di telefono per gli Agenti Vocali con la tua fatturazione Twilio, invece dei numeri gratuiti condivisi di Kin (Twilio/Telnyx). Questa opzione non è ancora disponibile per Telnyx.",
         "connected": "Connesso",
         "savedNote": "Credenziali Twilio salvate.",
         "remove": "Rimuovi",

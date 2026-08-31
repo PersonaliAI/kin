@@ -976,7 +976,7 @@ export function VoiceAgentsView() {
       </div>
       )}
 
-      {loading ? (
+      {!formOpen && (loading ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3">
           <Loader2 className="size-8 animate-spin text-muted-foreground" />
           <p className="text-sm text-muted-foreground">{t("loading")}</p>
@@ -1151,7 +1151,7 @@ export function VoiceAgentsView() {
             );
           })}
         </div>
-      )}
+      ))}
 
       {/* Connect phone number dialog */}
       <Dialog
