@@ -3,9 +3,9 @@ import createNextIntlPlugin from "next-intl/plugin";
 
 const withNextIntl = createNextIntlPlugin();
 
-// If you're self-hosting this behind plain HTTP (no TLS termination in
-// front), drop the Strict-Transport-Security line below — HSTS on an
-// HTTP-only origin just breaks it for browsers that have cached the header.
+// Deployed exclusively via Firebase App Hosting (see apphosting.yaml), which
+// fronts the app with a Google-managed HTTPS load balancer — there is no
+// plain-HTTP production path, so HSTS is safe to send unconditionally.
 const securityHeaders = [
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
@@ -15,7 +15,6 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  output: "standalone",
   async headers() {
     return [
       {

@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
-  Code2,
   Copy,
   Check,
   Loader2,
@@ -15,7 +14,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, inputCls } from "@/components/dashboard/dialog";
-import { UpgradeButton } from "@/components/dashboard/upgrade-modal";
 import {
   BACKEND_URL,
   kinApiKeysApi,
@@ -24,22 +22,16 @@ import {
   type KinWebhook,
 } from "@/lib/backend";
 
-export function DeveloperView({ plan }: { plan: string }) {
-  const t = useTranslations("dashboard.developer.upsell");
-  if (plan !== "executive") {
-    return (
-      <div className="rounded-xl border border-border bg-card p-6 flex flex-col items-center text-center gap-3">
-        <Code2 className="size-6 text-muted-foreground" />
-        <div>
-          <h2 className="text-sm font-semibold">{t("title")}</h2>
-          <p className="text-xs text-muted-foreground mt-1 max-w-sm">
-            {t("body")}
-          </p>
-        </div>
-        <UpgradeButton currentPlan={plan} label={t("cta")} />
-      </div>
-    );
-  }
+// Free on every plan (was Executive-only) — usage is capped, not gated by
+// plan: MAX_KIN_API_KEYS/MAX_KIN_WEBHOOKS on count (enforced backend-side —
+// keep these two in sync with main.py's MAX_KIN_API_KEYS/MAX_KIN_WEBHOOKS,
+// they're only display copy here, the real limit lives server-side), and
+// the normal per-plan token quota + existing per-key/per-IP rate limits on
+// actual request volume through /api/v1/messages.
+const MAX_KIN_API_KEYS = 5;
+const MAX_KIN_WEBHOOKS = 5;
+
+export function DeveloperView() {
   return (
     <div className="space-y-5">
       <ApiKeysSection />
@@ -136,6 +128,7 @@ function ApiKeysSection() {
               Authorization: Bearer &lt;key&gt;
             </code>
           ),
+          max: MAX_KIN_API_KEYS,
         })}
       </p>
 
@@ -287,6 +280,7 @@ function WebhooksSection() {
           header: () => (
             <code className="text-[10px] bg-muted rounded px-1 py-0.5">X-Kin-Signature</code>
           ),
+          max: MAX_KIN_WEBHOOKS,
         })}
       </p>
 

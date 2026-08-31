@@ -517,7 +517,8 @@
             "1M token al mese",
             "Lettura Gmail + Calendario",
             "Attività e Contatti",
-            "Memoria a lungo termine"
+            "Memoria a lungo termine",
+            "API e webhook (fino a 5 ciascuno)"
           ]
         },
         "basic": {
@@ -544,7 +545,6 @@
           "features": [
             "30M token al mese",
             "Tutto il piano Pro",
-            "Webhook e API personalizzati",
             "Account manager dedicato"
           ]
         }
@@ -606,7 +606,8 @@
           "Gmail + Calendario",
           "Attività e Contatti",
           "Memoria a lungo termine",
-          "Bot Telegram"
+          "Bot Telegram",
+          "API e webhook (fino a 5 ciascuno)"
         ],
         "basic": [
           "3M token al mese",
@@ -624,7 +625,6 @@
         "executive": [
           "30M token al mese",
           "Tutto il piano Pro",
-          "Webhook e API personalizzati",
           "Account manager dedicato",
           "Ottimizzazione trimestrale del prompt"
         ]
@@ -698,14 +698,9 @@
       "loadError": "Impossibile caricare la posta in arrivo"
     },
     "developer": {
-      "upsell": {
-        "title": "Chiavi API e webhook sono una funzione Executive",
-        "body": "Integra il tuo Kin con una chiave API personale e ricevi una chiamata webhook firmata ogni volta che Kin invia una risposta.",
-        "cta": "Passa a Executive"
-      },
       "apiKeys": {
         "title": "Chiavi API",
-        "description": "Invia messaggi al tuo Kin via programma: {endpoint} con {header}. Conta ai fini della tua quota mensile normale.",
+        "description": "Invia messaggi al tuo Kin via programma: {endpoint} con {header}. Conta ai fini della tua quota mensile normale — fino a {max} chiavi attive.",
         "revealNotice": "Copia questa chiave ora — non verrà mostrata di nuovo.",
         "dismiss": "Fatto, chiudi",
         "loadError": "Impossibile caricare le chiavi API",
@@ -722,7 +717,7 @@
       },
       "webhooks": {
         "title": "Webhook",
-        "description": "Ricevi una {post} firmata ogni volta che Kin invia una risposta. Verifica l'header {header} (HMAC-SHA256 del corpo grezzo) usando il segreto mostrato una sola volta qui sotto. La consegna è a tentativo singolo — gli errori vengono registrati, non ritentati.",
+        "description": "Ricevi una {post} firmata ogni volta che Kin invia una risposta. Verifica l'header {header} (HMAC-SHA256 del corpo grezzo) usando il segreto mostrato una sola volta qui sotto. La consegna è a tentativo singolo — gli errori vengono registrati, non ritentati. Fino a {max} webhook.",
         "revealNotice": "Copia questo segreto di firma ora — non verrà mostrato di nuovo.",
         "dismiss": "Fatto, chiudi",
         "loadError": "Impossibile caricare i webhook",
@@ -949,12 +944,22 @@
       "noCallsYet": "Nessuna chiamata ancora.",
       "inbound": "In entrata",
       "outbound": "In uscita",
+      "webTest": "Prova nel browser",
+      "outcome": {
+        "lead_captured": "Contatto acquisito",
+        "meeting_booked": "Riunione prenotata",
+        "resolved": "Risolto",
+        "no_action": "Nessuna azione",
+        "voicemail": "Segreteria telefonica",
+        "hung_up": "Riagganciato"
+      },
       "numberSearchFailed": "Impossibile cercare numeri disponibili.",
       "numberProvisionFailed": "Impossibile collegare quel numero.",
       "numberConnected": "{number} collegato a questo agente.",
+      "testInBrowser": "Prova nel browser",
       "header": {
         "title": "Agenti vocali",
-        "description": "Agenti telefonici IA per chiamate di vendita e reception, basati su LiveKit.",
+        "description": "Agenti telefonici IA per chiamate di vendita e reception.",
         "addAgent": "Nuovo agente vocale"
       },
       "empty": {
@@ -978,7 +983,6 @@
         "openai": "OpenAI",
         "anthropic": "Anthropic",
         "google": "Google Gemini",
-        "groq": "Groq",
         "xai": "xAI Grok"
       },
       "sttProvider": {
@@ -1001,14 +1005,34 @@
         "realtime": "Tempo reale"
       },
       "telephonyProvider": {
-        "twilio_managed": "Twilio",
+        "twilio_managed": "Twilio (gratuito, condiviso)",
         "telnyx_managed": "Telnyx",
+        "twilio_byok": "Twilio (account proprio)",
         "byo_sip": "Trunk SIP proprio"
+      },
+      "testCallDialog": {
+        "title": "Prova {name}",
+        "statusConnecting": "Connessione…",
+        "statusRequestingMic": "Richiesta accesso al microfono…",
+        "statusConnected": "Connesso",
+        "statusListening": "In ascolto…",
+        "statusAgentSpeaking": "L'agente sta parlando…",
+        "statusError": "Chiamata non riuscita",
+        "statusEnded": "Chiamata terminata",
+        "micDenied": "L'accesso al microfono è necessario per testare un agente vocale. Consenti l'accesso al microfono e riprova.",
+        "startFailed": "Impossibile avviare la chiamata di prova, riprova.",
+        "waitingForCall": "In attesa che la chiamata si connetta…",
+        "startTalking": "Inizia a parlare — la conversazione apparirà qui.",
+        "mute": "Disattiva audio",
+        "unmute": "Riattiva audio",
+        "hangup": "Riaggancia"
       },
       "tool": {
         "create_calendar_event": "Prenota eventi in calendario",
         "check_calendar_availability": "Verifica disponibilità calendario",
-        "create_lead": "Registra il chiamante come lead"
+        "create_lead": "Registra il chiamante come lead",
+        "search_documents": "Cerca nella tua base di conoscenza (RAG)",
+        "read_full_document": "Leggi un documento completo"
       },
       "formDialog": {
         "createTitle": "Nuovo agente vocale",
@@ -1048,15 +1072,45 @@
         "keyPlaceholderSaved": "•••••••••••• (salvata)",
         "keyPlaceholderEmpty": "Incolla la tua chiave API",
         "toolsSection": "Strumenti abilitati durante le chiamate",
+        "voicePipelineSection": "Pipeline vocale",
+        "voicePipelineHint": "Quali provider di riconoscimento e sintesi vocale usa questo agente, con le rispettive chiavi API qui sotto.",
         "cancel": "Annulla",
+        "back": "Indietro",
+        "next": "Avanti",
         "save": "Salva modifiche",
-        "create": "Crea bozza"
+        "create": "Crea bozza",
+        "stepProgress": "Passo {current} di {total}",
+        "stepSaved": "Salvato",
+        "stepName": {
+          "basics": "Informazioni di base",
+          "brain": "Voce e Cervello",
+          "voicePipeline": "Pipeline vocale",
+          "tools": "Strumenti"
+        }
       },
       "numberDialog": {
         "title": "Collega un numero di telefono",
         "description": "Cerca e attiva un numero. Potrebbe comportare costi da parte del fornitore di telefonia.",
         "providerLabel": "Provider",
-        "search": "Cerca numeri disponibili"
+        "search": "Cerca numeri disponibili",
+        "byokHint": "Usa l'account Twilio collegato dalla finestra Nuovo Agente Vocale. Aggiungi prima le tue credenziali Twilio se non l'hai ancora fatto."
+      },
+      "settingsDialog": {
+        "dialogTitle": "Impostazioni Agenti Vocali",
+        "title": "Twilio (numeri di telefono per gli Agenti Vocali)",
+        "description": "Usa il tuo account Twilio per acquistare e gestire numeri di telefono per gli Agenti Vocali con la tua fatturazione — un'alternativa all'opzione gratuita condivisa di Kin.",
+        "connected": "Connesso",
+        "savedNote": "Credenziali Twilio salvate.",
+        "remove": "Rimuovi",
+        "cancel": "Annulla",
+        "confirmRemove": "Sì, rimuovi",
+        "accountSidPlaceholder": "Account SID",
+        "authTokenPlaceholder": "Auth Token",
+        "trunkSidPlaceholder": "SIP Trunk SID",
+        "setupHint": "Crea un trunk SIP nella tua console Twilio e incolla i suoi dati sopra — configuriamo LiveKit automaticamente, non serve altro.",
+        "save": "Salva credenziali Twilio",
+        "saved": "Salvato",
+        "saveError": "Impossibile salvare le credenziali Twilio"
       }
     },
     "settings": {
@@ -1133,7 +1187,7 @@
       },
       "apiKeys": {
         "title": "Chiavi API",
-        "sub": "Usa la tua chiave per utilizzare i modelli OpenAI, Anthropic o OpenRouter invece del Gemini integrato predefinito.",
+        "sub": "Usa la tua chiave per utilizzare i modelli OpenAI, Anthropic, xAI o OpenRouter invece del Gemini integrato predefinito.",
         "loading": "Caricamento delle tue chiavi…",
         "loadError": "Impossibile caricare le tue chiavi API",
         "noKeys": "Nessuna chiave aggiunta finora — Kin usa il modello Gemini integrato finché non ne aggiungi una.",
@@ -1151,7 +1205,8 @@
         "providers": {
           "openai": "OpenAI",
           "anthropic": "Anthropic",
-          "openrouter": "OpenRouter"
+          "openrouter": "OpenRouter",
+          "xai": "xAI Grok"
         }
       },
       "dangerZone": {

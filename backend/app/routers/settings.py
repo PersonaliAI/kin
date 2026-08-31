@@ -13,7 +13,7 @@ from app.core.deps import require_user
 from app.core.llm_catalog import ALL_PROVIDERS as LLM_PROVIDERS
 from app.schemas.settings import FlowCredentialsSave, KinApiKeyCreate, SettingsPatch
 
-from main import PAID_PLANS, PRO_PLUS_PLANS, _credentials_fernet, _hash_api_key, _require_executive, plan_for
+from main import MAX_KIN_API_KEYS, PAID_PLANS, PRO_PLUS_PLANS, _credentials_fernet, _hash_api_key, plan_for
 
 logger = logging.getLogger("kin")
 
@@ -21,13 +21,20 @@ router = APIRouter()
 
 
 # ---- Custom API ---------------------------------------------------------
+#
+# Free on every plan (was Executive-only) — actual usage is already capped
+# by the normal per-plan token quota and chat.py's per-key/per-IP rate
+# limits regardless of plan, so the real thing opening this up needed a cap
+# on was key *count*, not request volume. See main.py's MAX_KIN_API_KEYS.
 
 _KIN_API_KEY_PREFIX = "kin_sk_"
 
 
 @router.post("/api/kin/api-keys")
 async def create_kin_api_key(body: KinApiKeyCreate, user: dict[str, Any] = Depends(require_user)):
-    _require_executive(user)
+    existing = supabase.table("kin_api_keys").select("id", count="exact").eq("user_id", user["id"]).eq("revoked", False).execute()
+    if (existing.count or 0) >= MAX_KIN_API_KEYS:
+        raise HTTPException(status_code=400, detail=f"You can have at most {MAX_KIN_API_KEYS} active API keys — revoke one first.")
     raw = _KIN_API_KEY_PREFIX + secrets.token_hex(24)
     row = supabase.table("kin_api_keys").insert({
         "user_id": user["id"],
@@ -40,7 +47,6 @@ async def create_kin_api_key(body: KinApiKeyCreate, user: dict[str, Any] = Depen
 
 @router.get("/api/kin/api-keys")
 async def list_kin_api_keys(user: dict[str, Any] = Depends(require_user)):
-    _require_executive(user)
     res = (
         supabase.table("kin_api_keys")
         .select("id, name, key_prefix, revoked, request_count, last_used_at, created_at")
@@ -53,7 +59,6 @@ async def list_kin_api_keys(user: dict[str, Any] = Depends(require_user)):
 
 @router.delete("/api/kin/api-keys/{key_id}")
 async def revoke_kin_api_key(key_id: str, user: dict[str, Any] = Depends(require_user)):
-    _require_executive(user)
     supabase.table("kin_api_keys").update({"revoked": True}).eq("id", key_id).eq("user_id", user["id"]).execute()
     return {"status": "revoked"}
 

@@ -48,7 +48,6 @@ from livekit.plugins import (
     deepgram,
     elevenlabs,
     google,
-    groq,
     lmnt,
     openai,
     rime,
@@ -112,6 +111,47 @@ AVAILABLE_TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
             "required": ["name"],
         },
     },
+    # Mirrors agent_tools.py's Gemini FunctionDeclaration of the same name
+    # (chat's RAG search tool) as a plain JSON schema — this is what gives a
+    # voice call the same knowledge-base grounding chat has, instead of only
+    # the agent's static persona text. Executed the same way every other
+    # voice tool is: kin-backend's /internal/voice-tools/execute dispatches
+    # straight to agent_tools.execute(), so behavior (including the
+    # keyword-search fallback when vector search returns nothing) is
+    # identical to chat, not reimplemented here.
+    "search_documents": {
+        "name": "search_documents",
+        "description": (
+            "Semantic search across the caller's indexed documents (Drive, OneDrive, and "
+            "anything uploaded through chat) for a SPECIFIC fact, figure, policy, or clause "
+            "a file might answer. Returns the most relevant text chunks with source filenames — "
+            "cite them in your reply. For 'summarize this file' style requests, use "
+            "read_full_document instead."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Natural-language question to search for."},
+                "limit": {"type": "integer", "description": "Max chunks to return (default 8, max 15)."},
+            },
+            "required": ["query"],
+        },
+    },
+    "read_full_document": {
+        "name": "read_full_document",
+        "description": (
+            "Fetch the COMPLETE indexed text of ONE document by filename — use this on the "
+            "first attempt for 'summarize this', 'what does this say overall' style requests, "
+            "instead of retrying search_documents with rephrased queries."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "file_name": {"type": "string", "description": "Filename or partial filename."},
+            },
+            "required": ["file_name"],
+        },
+    },
 }
 
 
@@ -173,8 +213,6 @@ def build_llm(provider: str, model: str, api_key: Optional[str]):
         return anthropic.LLM(model=model, api_key=api_key)
     if provider == "google":
         return google.LLM(model=model, api_key=api_key)
-    if provider == "groq":
-        return groq.LLM(model=model, api_key=api_key)
     if provider == "xai":
         return xai.responses.LLM(model=model, api_key=api_key)
     raise ValueError(f"Unsupported llm_provider: {provider}")

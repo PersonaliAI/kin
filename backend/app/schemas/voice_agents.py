@@ -15,7 +15,7 @@ class VoiceAgentCreate(BaseModel):
     # audio in, audio out, no separate STT/TTS. See VOICE_AGENT_REALTIME_PROVIDERS.
     mode: str = "pipeline"
     llm_provider: str = "openai"
-    llm_model: str = "gpt-4o-mini"
+    llm_model: str = "gpt-5.6-sol"
     stt_provider: str = "deepgram"
     tts_provider: str = "cartesia"
     tts_voice: Optional[str] = None
@@ -56,6 +56,12 @@ class VoiceAgentProvisionNumber(BaseModel):
 
 class VoiceAgentTestCall(BaseModel):
     to_number: str
+
+
+class TwilioByokCredentials(BaseModel):
+    account_sid: str
+    auth_token: str
+    trunk_sid: str  # Twilio's own SIP Trunk SID, e.g. "TKxxxxxxxx..."
 
 
 class InternalToolExecute(BaseModel):

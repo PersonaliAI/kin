@@ -26,7 +26,6 @@ from app.core.llm_catalog import BYOK_PROVIDERS, DEFAULT_MODELS
 from app.schemas.chat import ChatResponse, KinApiMessageRequest
 
 from main import (
-    EXECUTIVE_ONLY,
     PAID_PLANS,
     _credentials_fernet,
     _fmt_tokens,
@@ -221,7 +220,12 @@ async def web_chat(
 
 @router.get("/api/usage")
 async def usage(user: dict[str, Any] = Depends(require_user)):
-    used, limit = quota_state(user)
+    # Fetched once and reused for quota_state() below — this endpoint used
+    # to call get_monthly_token_usage() twice (once inside quota_state(),
+    # once directly for the "tokens" field), each doing a real DB round
+    # trip. See migration 20260831010000's comment for the full story.
+    token_usage = get_monthly_token_usage(user["id"])
+    used, limit = quota_state(user, token_usage)
     plan = plan_for(user)
     now = datetime.now(tz=timezone.utc)
     # Next reset: first of next month UTC.
@@ -236,7 +240,7 @@ async def usage(user: dict[str, Any] = Depends(require_user)):
         "limit": limit,
         "remaining": max(0, limit - used),
         "resets_at": reset.isoformat(),
-        "tokens": get_monthly_token_usage(user["id"]),
+        "tokens": token_usage,
     }
 
 
@@ -325,9 +329,12 @@ async def kin_public_api_message(
     authorization: Optional[str] = Header(None),
 ):
     """Programmatic access to a user's own Kin, authenticated with a Kin API
-    key instead of a Supabase session — the "custom API" advertised on
-    Executive. Counts against the same monthly message quota as the web/
-    web chat, since it runs the exact same model calls.
+    key instead of a Supabase session — free on every plan (used to be
+    Executive-only; see main.py's MAX_KIN_API_KEYS comment for why opening
+    it up doesn't change the actual abuse surface). Counts against the same
+    monthly token quota as web chat, since it runs the exact same model
+    calls — that quota is this endpoint's real usage cap, same as it is for
+    everyone using Kin through the browser.
 
     Enforces the limits documented in the OpenAPI description
     (app/core/app_factory.py): 60 req/min per key, 120 req/min per IP, the
@@ -356,10 +363,6 @@ async def kin_public_api_message(
             status_code = 401
             raise HTTPException(status_code=401, detail="API key owner not found")
         user = user_res.data[0]
-        if plan_for(user) not in EXECUTIVE_ONLY:
-            # Plan may have lapsed since the key was issued.
-            status_code = 403
-            raise HTTPException(status_code=403, detail="API access requires an active Executive plan")
 
         used, limit = quota_state(user)
         if used >= limit:

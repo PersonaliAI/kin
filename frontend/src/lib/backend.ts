@@ -6,9 +6,35 @@ export const BACKEND_URL = (() => {
   return url;
 })();
 
+// supabase-js's getSession() can hang indefinitely — a documented issue
+// where it waits on a browser Web Locks lock that never releases (e.g. a
+// stale/crashed tab still holding it). Without a timeout, every UI section
+// that calls api() (and therefore this) spins forever with no error, which
+// is indistinguishable from a slow network to the user. Racing it against a
+// timeout turns that into a visible, retryable error instead.
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      }
+    );
+  });
+}
+
 async function authHeader(): Promise<HeadersInit> {
   const supabase = createClient();
-  const { data } = await supabase.auth.getSession();
+  const { data } = await withTimeout(
+    supabase.auth.getSession(),
+    8000,
+    "Timed out getting your session — please refresh the page."
+  );
   const token = data.session?.access_token;
   if (!token) throw new Error("not signed in");
   return { Authorization: `Bearer ${token}` };
@@ -1001,7 +1027,7 @@ export const mcpApi = {
 
 // ---- Voice Agents ----------------------------------------------------------
 
-export type VoiceAgentLlmProvider = "openai" | "anthropic" | "google" | "groq" | "xai";
+export type VoiceAgentLlmProvider = "openai" | "anthropic" | "google" | "xai";
 export type VoiceAgentSttProvider = "deepgram" | "google" | "azure" | "assemblyai" | "openai";
 export type VoiceAgentTtsProvider = "elevenlabs" | "cartesia" | "rime" | "lmnt" | "azure" | "google";
 // "pipeline" = separate STT/LLM/TTS stages (any provider mix). "realtime" =
@@ -1010,7 +1036,7 @@ export type VoiceAgentTtsProvider = "elevenlabs" | "cartesia" | "rime" | "lmnt" 
 export type VoiceAgentMode = "pipeline" | "realtime";
 export type VoiceAgentRealtimeProvider = "google" | "openai";
 export type VoiceAgentUseCase = "sales" | "receptionist" | "custom";
-export type VoiceAgentTelephonyProvider = "twilio_managed" | "telnyx_managed" | "byo_sip";
+export type VoiceAgentTelephonyProvider = "twilio_managed" | "telnyx_managed" | "twilio_byok" | "byo_sip";
 export type VoiceAgentStatus = "draft" | "provisioning" | "active" | "paused" | "error";
 
 export type VoiceAgent = {
@@ -1042,7 +1068,7 @@ export type VoiceAgent = {
 export type VoiceAgentCall = {
   id: string;
   voice_agent_id: string;
-  direction: "inbound" | "outbound";
+  direction: "inbound" | "outbound" | "web_test";
   from_number: string | null;
   to_number: string | null;
   started_at: string;
@@ -1086,7 +1112,7 @@ export const voiceAgentsApi = {
     api<{ phone_number: string; locality?: string; region?: string }[]>(
       `/api/voice-agents/available-numbers?provider=${provider}&country=${country}${areaCode ? `&area_code=${areaCode}` : ""}`,
     ),
-  provisionNumber: (id: string, telephony_provider: "twilio_managed" | "telnyx_managed", phone_number: string) =>
+  provisionNumber: (id: string, telephony_provider: "twilio_managed" | "telnyx_managed" | "twilio_byok", phone_number: string) =>
     api<VoiceAgent>(`/api/voice-agents/${id}/provision-number`, {
       method: "POST",
       body: JSON.stringify({ telephony_provider, phone_number }),
@@ -1095,6 +1121,21 @@ export const voiceAgentsApi = {
     api<{ status: string; room_name: string }>(`/api/voice-agents/${id}/test-call`, {
       method: "POST",
       body: JSON.stringify({ to_number }),
+    }),
+  // No phone number/telephony provider needed — joins the same worker
+  // agent directly from the browser mic. See livekit_control.create_web_test_call.
+  webCall: (id: string) =>
+    api<{ room_name: string; token: string; url: string }>(`/api/voice-agents/${id}/web-call`, {
+      method: "POST",
+    }),
+  // Saves the user's own Twilio credentials AND auto-provisions the
+  // matching LiveKit SIP trunks server-side — unlike the generic
+  // flowCredentials.save, this one has a real side effect, so it's its own
+  // endpoint rather than reusing /api/flow-credentials directly.
+  saveTwilioByok: (account_sid: string, auth_token: string, trunk_sid: string) =>
+    api<{ status: string }>("/api/voice-agents/telephony/twilio-byok", {
+      method: "POST",
+      body: JSON.stringify({ account_sid, auth_token, trunk_sid }),
     }),
 };
 

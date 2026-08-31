@@ -46,10 +46,7 @@ const NAV: { section: "workspace" | "data" | "account"; items: { href: string; k
     items: [
       { href: "/dashboard", key: "overview", icon: LayoutDashboard },
       { href: "/dashboard/chat", key: "chat", icon: MessageSquare },
-      // Social Copilot is still in development (OAuth flows, composer UI
-      // bugs) — hidden from nav until it's ready. The route/page itself
-      // still works if visited directly; just re-add this line to relink it.
-      // { href: "/dashboard/social", key: "social", icon: Share2 },
+      { href: "/dashboard/social", key: "social", icon: Share2 },
       { href: "/dashboard/activity", key: "activity", icon: Activity },
       { href: "/dashboard/memory", key: "memory", icon: Brain },
     ],

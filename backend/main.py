@@ -692,6 +692,15 @@ PRIORITY_PLANS = {"pro", "executive"}             # more retries before
 # just a bigger quota number.
 _PRIORITY_ATTEMPTS = {"executive": 8, "pro": 6}
 
+# API keys and webhooks moved from Executive-only to free-for-everyone (with
+# these count caps, since neither had one before — actual request volume was
+# already bounded by the normal per-plan KIN_TOKEN_QUOTAS and chat.py's
+# existing 60 req/min-per-key / 120 req/min-per-IP rate limits regardless of
+# plan, so the only real new abuse surface opening this up creates is
+# unbounded key/webhook *count*, not unbounded usage).
+MAX_KIN_API_KEYS = 5
+MAX_KIN_WEBHOOKS = 5
+
 
 def priority_attempts(plan: str) -> int:
     return _PRIORITY_ATTEMPTS.get(plan, 4)
@@ -717,13 +726,19 @@ def _fmt_tokens(n: int) -> str:
     return str(n)
 
 
-def quota_state(user: dict[str, Any]) -> tuple[int, int]:
+def quota_state(user: dict[str, Any], _usage: Optional[dict[str, int]] = None) -> tuple[int, int]:
     """Return (tokens_used_this_month, token_limit). Falls back to the Free
     token quota for a plan value KIN_TOKEN_QUOTAS doesn't recognize (e.g. a
     Chatty-only plan like chatty_hobby, if that account also messages Kin
-    directly) rather than raising."""
+    directly) rather than raising.
+
+    Pass `_usage` (an already-fetched get_monthly_token_usage() result) when
+    the caller needs that dict anyway — e.g. GET /api/usage, which used to
+    call get_monthly_token_usage() a second time right after this, doubling
+    the RPC round trip for no reason."""
     limit = KIN_TOKEN_QUOTAS.get(plan_for(user), KIN_TOKEN_QUOTAS["free"])
-    return get_monthly_token_usage(user["id"])["total_tokens"], limit
+    usage = _usage if _usage is not None else get_monthly_token_usage(user["id"])
+    return usage["total_tokens"], limit
 
 
 def _sanitize_contents(raw_contents: list) -> list:
@@ -2028,20 +2043,22 @@ MAX_EXTRA_GOOGLE_ACCOUNTS: dict[str, int] = {"pro": 2, "executive": 2}
 def get_monthly_token_usage(user_id: str) -> dict[str, int]:
     """Real token spend this month, as opposed to the message-count quota
     proxy — closes the audit finding that quotas measured a proxy, not
-    actual Gemini cost."""
+    actual Gemini cost.
+
+    Sums in Postgres via the kin_monthly_token_usage() RPC (migration
+    20260831010000) rather than pulling every message row of the month over
+    PostgREST and summing in Python — that was the concrete cause of a slow
+    usage/token-count UI for any user with meaningful message volume."""
     try:
-        res = (
-            supabase.table("messages")
-            .select("prompt_tokens, completion_tokens, total_tokens")
-            .eq("user_id", user_id)
-            .gte("created_at", _month_start_iso())
-            .execute()
-        )
-        rows = res.data or []
+        res = supabase.rpc(
+            "kin_monthly_token_usage",
+            {"p_user_id": user_id, "p_since": _month_start_iso()},
+        ).execute()
+        row = (res.data or [{}])[0]
         return {
-            "prompt_tokens": sum(r.get("prompt_tokens") or 0 for r in rows),
-            "completion_tokens": sum(r.get("completion_tokens") or 0 for r in rows),
-            "total_tokens": sum(r.get("total_tokens") or 0 for r in rows),
+            "prompt_tokens": row.get("prompt_tokens") or 0,
+            "completion_tokens": row.get("completion_tokens") or 0,
+            "total_tokens": row.get("total_tokens") or 0,
         }
     except Exception:  # noqa: BLE001
         logger.exception("token usage sum failed")

@@ -645,7 +645,7 @@ function Section({
   );
 }
 
-const BYOK_PROVIDERS = ["openai", "anthropic", "openrouter"] as const;
+const BYOK_PROVIDERS = ["openai", "anthropic", "openrouter", "xai"] as const;
 
 function ApiKeysSection() {
   const t = useTranslations("dashboard.settings.apiKeys");

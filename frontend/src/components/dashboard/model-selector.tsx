@@ -124,7 +124,7 @@ export function ModelSelector({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.98 }}
             transition={{ duration: 0.12 }}
-            className="absolute right-0 z-30 mt-1.5 w-72 rounded-xl border border-border bg-card shadow-xl overflow-hidden max-h-96 overflow-y-auto custom-scrollbar"
+            className="absolute right-0 z-30 mt-1.5 w-max min-w-[14rem] max-w-xs rounded-xl border border-border bg-card shadow-xl overflow-hidden max-h-96 overflow-y-auto custom-scrollbar"
             role="listbox"
           >
             {providers.map((p) => {

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -9,19 +10,20 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from plugins import agent_tools, livekit_control, llm_providers, telephony_providers
 
 from app.core import security as _sec
-from app.core.clients import supabase
-from app.core.config import FUNCTION_SECRET
+from app.core.clients import genai_client, supabase
+from app.core.config import FUNCTION_SECRET, MODEL_NAME
 from app.core.deps import require_user
 from app.schemas.voice_agents import (
     InternalToolExecute,
     InternalVoiceCallEvent,
+    TwilioByokCredentials,
     VoiceAgentCreate,
     VoiceAgentProvisionNumber,
     VoiceAgentTestCall,
     VoiceAgentUpdate,
 )
 
-from main import _decode_credentials_payload
+from main import _credentials_fernet, _decode_credentials_payload
 
 logger = logging.getLogger("kin")
 
@@ -37,7 +39,7 @@ router = APIRouter()
 # the /internal/* routes below, gated by FUNCTION_SECRET like /cron/*.
 # ---------------------------------------------------------------------------
 
-VOICE_AGENT_LLM_PROVIDERS = {"openai", "anthropic", "google", "groq", "xai"}
+VOICE_AGENT_LLM_PROVIDERS = {"openai", "anthropic", "google", "xai"}
 VOICE_AGENT_STT_PROVIDERS = {"deepgram", "google", "azure", "assemblyai", "openai"}
 VOICE_AGENT_TTS_PROVIDERS = {"elevenlabs", "cartesia", "rime", "lmnt", "azure", "google"}
 # Speech-to-speech models (audio in, audio out) — no separate STT/TTS stage.
@@ -46,7 +48,7 @@ VOICE_AGENT_TTS_PROVIDERS = {"elevenlabs", "cartesia", "rime", "lmnt", "azure", 
 VOICE_AGENT_REALTIME_PROVIDERS = {"google", "openai"}
 VOICE_AGENT_MODES = {"pipeline", "realtime"}
 VOICE_AGENT_USE_CASES = {"sales", "receptionist", "custom"}
-VOICE_AGENT_TELEPHONY_PROVIDERS = {"twilio_managed", "telnyx_managed", "byo_sip"}
+VOICE_AGENT_TELEPHONY_PROVIDERS = {"twilio_managed", "telnyx_managed", "twilio_byok", "byo_sip"}
 
 
 def _validate_voice_agent_fields(data: dict[str, Any]) -> None:
@@ -184,16 +186,35 @@ async def list_voice_agent_calls(agent_id: str, user: dict[str, Any] = Depends(r
 
 @router.post("/api/voice-agents/{agent_id}/provision-number")
 async def provision_voice_agent_number(agent_id: str, body: VoiceAgentProvisionNumber, user: dict[str, Any] = Depends(require_user)):
-    if body.telephony_provider not in ("twilio_managed", "telnyx_managed"):
-        raise HTTPException(status_code=400, detail="telephony_provider must be twilio_managed or telnyx_managed")
+    if body.telephony_provider not in ("twilio_managed", "telnyx_managed", "twilio_byok"):
+        raise HTTPException(status_code=400, detail="telephony_provider must be twilio_managed, telnyx_managed, or twilio_byok")
     owns = supabase.table("voice_agents").select("id").eq("id", agent_id).eq("user_id", user["id"]).execute()
     if not owns.data:
         raise HTTPException(status_code=404, detail="Voice agent not found")
+
+    byok_creds = None
+    if body.telephony_provider == "twilio_byok":
+        byok_creds = _get_twilio_byok_credentials(user["id"])
+        if not byok_creds:
+            raise HTTPException(status_code=400, detail="No Twilio credentials saved — add them in Settings → API Keys first.")
 
     supabase.table("voice_agents").update({"status": "provisioning"}).eq("id", agent_id).execute()
     try:
         if body.telephony_provider == "twilio_managed":
             result = await telephony_providers.purchase_twilio_number(body.phone_number)
+        elif body.telephony_provider == "twilio_byok":
+            result = await telephony_providers.purchase_twilio_number(body.phone_number, creds=byok_creds)
+            # Attaches the new number to this user's LiveKit trunks + creates
+            # its inbound dispatch rule — the managed/free path relies on a
+            # dispatch rule the platform owner set up once, out of band;
+            # BYOK numbers need one per number since each maps to a
+            # different voice agent, so this has to happen per purchase.
+            await livekit_control.register_byok_number(
+                outbound_trunk_id=byok_creds["outbound_trunk_id"],
+                inbound_trunk_id=byok_creds["inbound_trunk_id"],
+                phone_number=result["phone_number"],
+                voice_agent_id=agent_id,
+            )
         else:
             result = await telephony_providers.purchase_telnyx_number(body.phone_number)
     except Exception as e:
@@ -216,7 +237,12 @@ async def search_available_numbers(provider: str, country: str = "US", area_code
         return await telephony_providers.search_twilio_numbers(country, area_code)
     if provider == "telnyx_managed":
         return await telephony_providers.search_telnyx_numbers(country, area_code)
-    raise HTTPException(status_code=400, detail="provider must be twilio_managed or telnyx_managed")
+    if provider == "twilio_byok":
+        byok_creds = _get_twilio_byok_credentials(user["id"])
+        if not byok_creds:
+            raise HTTPException(status_code=400, detail="No Twilio credentials saved — add them in Settings → API Keys first.")
+        return await telephony_providers.search_twilio_numbers(country, area_code, creds=byok_creds)
+    raise HTTPException(status_code=400, detail="provider must be twilio_managed, telnyx_managed, or twilio_byok")
 
 
 @router.post("/api/voice-agents/{agent_id}/test-call")
@@ -228,17 +254,50 @@ async def test_call_voice_agent(agent_id: str, body: VoiceAgentTestCall, user: d
     if not agent.get("phone_number") or not agent.get("telephony_provider"):
         raise HTTPException(status_code=400, detail="Voice agent has no phone number provisioned yet")
 
+    trunk_id_override = None
+    if agent["telephony_provider"] == "twilio_byok":
+        byok_creds = _get_twilio_byok_credentials(user["id"])
+        trunk_id_override = byok_creds.get("outbound_trunk_id") if byok_creds else None
+        if not trunk_id_override:
+            raise HTTPException(
+                status_code=400,
+                detail="No Twilio credentials saved — add them in Settings → API Keys first.",
+            )
+
     try:
         result = await livekit_control.place_outbound_call(
             voice_agent_id=agent_id,
             telephony_provider=agent["telephony_provider"],
             from_number=agent["phone_number"],
             to_number=body.to_number,
+            trunk_id_override=trunk_id_override,
         )
         return {"status": "dialing", **result}
     except Exception as e:
         logger.exception("Failed to place test call")
         raise HTTPException(status_code=502, detail=f"Failed to place call: {e}")
+
+
+@router.post("/api/voice-agents/{agent_id}/web-call")
+async def web_test_call_voice_agent(agent_id: str, user: dict[str, Any] = Depends(require_user)):
+    """Test a voice agent straight from the browser — no phone number or
+    telephony provider required, unlike /test-call. Dispatches the same
+    worker agent into a fresh LiveKit room and hands back a token the
+    dashboard joins with livekit-client, mic-to-mic. This is what makes a
+    voice agent testable the moment it's created, since number provisioning
+    needs a configured Twilio/Telnyx account most users won't have yet."""
+    owns = supabase.table("voice_agents").select("id").eq("id", agent_id).eq("user_id", user["id"]).execute()
+    if not owns.data:
+        raise HTTPException(status_code=404, detail="Voice agent not found")
+
+    try:
+        result = await livekit_control.create_web_test_call(
+            voice_agent_id=agent_id, user_identity=f"tester-{user['id']}",
+        )
+        return result
+    except Exception as e:
+        logger.exception("Failed to start web test call")
+        raise HTTPException(status_code=502, detail=f"Failed to start test call: {e}")
 
 
 def _get_provider_api_key(user_id: str, provider_slug: str) -> Optional[str]:
@@ -250,6 +309,69 @@ def _get_provider_api_key(user_id: str, provider_slug: str) -> Optional[str]:
     except Exception:
         logger.exception("Failed to decode user credentials for %s", provider_slug)
     return None
+
+
+def _get_twilio_byok_credentials(user_id: str) -> Optional[dict[str, Any]]:
+    """Saved via POST /api/voice-agents/telephony/twilio-byok (Settings' API
+    Keys section calls this, not the generic /api/flow-credentials, since
+    saving Twilio creds has a real side effect: auto-provisioning matching
+    LiveKit SIP trunks). Same encrypted-payload storage as any other BYOK
+    credential (user_credentials, integration_slug "twilio"), holding
+    account_sid/auth_token/trunk_sid (the user's own Twilio values) plus
+    outbound_trunk_id/inbound_trunk_id (the LiveKit trunks
+    provision_byok_twilio_trunks created for them — the user never sees or
+    enters these)."""
+    try:
+        res = supabase.table("user_credentials").select("encrypted_payload").eq("user_id", user_id).eq("integration_slug", "twilio").maybe_single().execute()
+        if res.data and res.data.get("encrypted_payload"):
+            payload = _decode_credentials_payload(res.data["encrypted_payload"])
+            if payload.get("account_sid") and payload.get("auth_token") and payload.get("trunk_sid") and payload.get("outbound_trunk_id"):
+                return payload
+    except Exception:
+        logger.exception("Failed to decode Twilio BYOK credentials for user %s", user_id)
+    return None
+
+
+@router.post("/api/voice-agents/telephony/twilio-byok")
+async def save_twilio_byok_credentials(body: TwilioByokCredentials, user: dict[str, Any] = Depends(require_user)):
+    """Saves the user's own Twilio credentials AND auto-provisions the
+    matching LiveKit outbound/inbound SIP trunks in one step — the user
+    never touches the LiveKit CLI or knows what a "trunk id" is. See
+    livekit_control.provision_byok_twilio_trunks for exactly what gets
+    created, and its docstring's note on this being verified against the
+    real SDK but not against a live Twilio+LiveKit pair."""
+    try:
+        trunks = await livekit_control.provision_byok_twilio_trunks(
+            user_id=user["id"],
+            twilio_account_sid=body.account_sid,
+            twilio_auth_token=body.auth_token,
+            twilio_trunk_sid=body.trunk_sid,
+        )
+    except Exception as e:
+        logger.exception("Failed to provision LiveKit trunks for Twilio BYOK")
+        raise HTTPException(status_code=502, detail=f"Could not set up your Twilio account: {e}")
+
+    payload = {
+        "account_sid": body.account_sid,
+        "auth_token": body.auth_token,
+        "trunk_sid": body.trunk_sid,
+        "outbound_trunk_id": trunks["outbound_trunk_id"],
+        "inbound_trunk_id": trunks["inbound_trunk_id"],
+    }
+    try:
+        ciphertext = _credentials_fernet().encrypt(json.dumps(payload).encode())
+        supabase.table("user_credentials").upsert({
+            "user_id": user["id"],
+            "integration_slug": "twilio",
+            "auth_type": "api_key",
+            "encrypted_payload": f"\\x{ciphertext.hex()}",
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }).execute()
+    except Exception as e:
+        logger.exception("Failed to save Twilio BYOK credentials")
+        raise HTTPException(status_code=500, detail=str(e))
+
+    return {"status": "success"}
 
 
 @router.get("/internal/voice-agents/{agent_id}/config")
@@ -329,9 +451,50 @@ async def internal_execute_voice_tool(request: Request, body: InternalToolExecut
         body.args,
         user=user,
         supabase=supabase,
+        genai_client=genai_client,
         context={"source": "voice"},
     )
     return result
+
+
+_CALL_OUTCOMES = {"lead_captured", "meeting_booked", "resolved", "no_action", "voicemail", "hung_up"}
+
+
+async def _summarize_call(transcript: list[dict[str, Any]]) -> tuple[Optional[str], Optional[str]]:
+    """One-line summary + a coarse outcome tag for a finished call, so the
+    dashboard's call history is actually useful to skim instead of showing
+    only a timestamp and phone number. Best-effort: any failure here must
+    never block the call from being marked ended (transcript is already
+    saved regardless), so this always returns (None, None) rather than
+    raising."""
+    turns = [t for t in transcript if (t.get("text") or "").strip()]
+    if len(turns) < 2:
+        return None, None
+    try:
+        convo = "\n".join(f"{t.get('role', '?')}: {t['text'].strip()}" for t in turns[-40:])
+        prompt = (
+            "Summarize this phone call between an AI voice agent and a caller in ONE short "
+            "sentence (under 20 words), then classify its outcome as exactly one of: "
+            f"{', '.join(sorted(_CALL_OUTCOMES))}.\n\n"
+            "Respond in EXACTLY this format, nothing else:\n"
+            "SUMMARY: <one sentence>\n"
+            "OUTCOME: <one tag>\n\n"
+            f"Transcript:\n{convo}"
+        )
+        resp = await genai_client.aio.models.generate_content(model=MODEL_NAME, contents=prompt)
+        text = (resp.text or "").strip()
+        summary: Optional[str] = None
+        outcome: Optional[str] = None
+        for line in text.splitlines():
+            if line.upper().startswith("SUMMARY:"):
+                summary = line.split(":", 1)[1].strip()[:300] or None
+            elif line.upper().startswith("OUTCOME:"):
+                tag = line.split(":", 1)[1].strip().lower()
+                outcome = tag if tag in _CALL_OUTCOMES else None
+        return summary, outcome
+    except Exception:  # noqa: BLE001
+        logger.exception("Call summary generation failed")
+        return None, None
 
 
 @router.post("/internal/voice-calls")
@@ -370,6 +533,17 @@ async def internal_upsert_voice_call(request: Request, body: InternalVoiceCallEv
         if body.ended:
             update_data["ended_at"] = datetime.utcnow().isoformat()
             update_data.setdefault("status", "completed")
+            # worker.py's _on_shutdown never sets summary/outcome itself (it
+            # only has the raw transcript, no LLM of its own to summarize
+            # with) — generate them here so call history isn't just a
+            # timestamp and phone number. Skipped if the caller already
+            # supplied one of its own.
+            if body.transcript and "summary" not in update_data and "outcome" not in update_data:
+                summary, outcome = await _summarize_call(body.transcript)
+                if summary:
+                    update_data["summary"] = summary
+                if outcome:
+                    update_data["outcome"] = outcome
 
         if not update_data:
             res = supabase.table("voice_agent_calls").select("*").eq("id", body.call_id).execute()

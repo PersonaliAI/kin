@@ -517,7 +517,8 @@
             "1M tokens / month",
             "Gmail + Calendar read",
             "Tasks & Contacts",
-            "Long-term memory"
+            "Long-term memory",
+            "API & webhooks (up to 5 each)"
           ]
         },
         "basic": {
@@ -544,7 +545,6 @@
           "features": [
             "30M tokens / month",
             "Everything in Pro",
-            "Custom webhooks & API",
             "Dedicated account manager"
           ]
         }
@@ -606,7 +606,8 @@
           "Gmail + Calendar",
           "Tasks & Contacts",
           "Long-term memory",
-          "Telegram bot"
+          "Telegram bot",
+          "API & webhooks (up to 5 each)"
         ],
         "basic": [
           "3M tokens / month",
@@ -624,7 +625,6 @@
         "executive": [
           "30M tokens / month",
           "Everything in Pro",
-          "Custom webhooks & API",
           "Dedicated account manager",
           "Quarterly prompt tuning"
         ]
@@ -698,14 +698,9 @@
       "loadError": "Could not load inbox"
     },
     "developer": {
-      "upsell": {
-        "title": "API keys & webhooks are an Executive feature",
-        "body": "Build on top of your own Kin with a personal API key, and get a signed webhook call whenever Kin sends a reply.",
-        "cta": "Upgrade to Executive"
-      },
       "apiKeys": {
         "title": "API keys",
-        "description": "Send messages to your own Kin programmatically: {endpoint} with {header}. Counts against your normal monthly quota.",
+        "description": "Send messages to your own Kin programmatically: {endpoint} with {header}. Counts against your normal monthly quota — up to {max} active keys.",
         "revealNotice": "Copy this key now — it won't be shown again.",
         "dismiss": "Done, dismiss",
         "loadError": "Could not load API keys",
@@ -722,7 +717,7 @@
       },
       "webhooks": {
         "title": "Webhooks",
-        "description": "Get a signed {post} every time Kin sends you a reply. Verify the {header} header (HMAC-SHA256 of the raw body) using the secret shown once below. Delivery is single-attempt — failures are logged, not retried.",
+        "description": "Get a signed {post} every time Kin sends you a reply. Verify the {header} header (HMAC-SHA256 of the raw body) using the secret shown once below. Delivery is single-attempt — failures are logged, not retried. Up to {max} webhooks.",
         "revealNotice": "Copy this signing secret now — it won't be shown again.",
         "dismiss": "Done, dismiss",
         "loadError": "Could not load webhooks",
@@ -949,12 +944,22 @@
       "noCallsYet": "No calls yet.",
       "inbound": "Inbound",
       "outbound": "Outbound",
+      "webTest": "Browser test",
+      "outcome": {
+        "lead_captured": "Lead captured",
+        "meeting_booked": "Meeting booked",
+        "resolved": "Resolved",
+        "no_action": "No action",
+        "voicemail": "Voicemail",
+        "hung_up": "Hung up"
+      },
       "numberSearchFailed": "Failed to search available numbers.",
       "numberProvisionFailed": "Failed to connect that number.",
       "numberConnected": "Connected {number} to this agent.",
+      "testInBrowser": "Test in Browser",
       "header": {
         "title": "Voice Agents",
-        "description": "AI phone agents for sales calls and receptionist duties, powered by LiveKit.",
+        "description": "AI phone agents for sales calls and receptionist duties.",
         "addAgent": "New Voice Agent"
       },
       "empty": {
@@ -978,7 +983,6 @@
         "openai": "OpenAI",
         "anthropic": "Anthropic",
         "google": "Google Gemini",
-        "groq": "Groq",
         "xai": "xAI Grok"
       },
       "sttProvider": {
@@ -1001,14 +1005,34 @@
         "realtime": "Realtime"
       },
       "telephonyProvider": {
-        "twilio_managed": "Twilio",
+        "twilio_managed": "Twilio (free, shared)",
         "telnyx_managed": "Telnyx",
+        "twilio_byok": "Twilio (your own account)",
         "byo_sip": "Bring your own SIP trunk"
+      },
+      "testCallDialog": {
+        "title": "Test {name}",
+        "statusConnecting": "Connecting…",
+        "statusRequestingMic": "Requesting microphone access…",
+        "statusConnected": "Connected",
+        "statusListening": "Listening…",
+        "statusAgentSpeaking": "Agent speaking…",
+        "statusError": "Call failed",
+        "statusEnded": "Call ended",
+        "micDenied": "Microphone access is required to test a voice agent. Please allow microphone access and try again.",
+        "startFailed": "Couldn't start the test call, please try again.",
+        "waitingForCall": "Waiting for the call to connect…",
+        "startTalking": "Start talking — your conversation will appear here.",
+        "mute": "Mute",
+        "unmute": "Unmute",
+        "hangup": "Hang up"
       },
       "tool": {
         "create_calendar_event": "Book calendar events",
         "check_calendar_availability": "Check calendar availability",
-        "create_lead": "Capture caller as a lead"
+        "create_lead": "Capture caller as a lead",
+        "search_documents": "Search your knowledge base (RAG)",
+        "read_full_document": "Read a full document"
       },
       "formDialog": {
         "createTitle": "New Voice Agent",
@@ -1048,15 +1072,45 @@
         "keyPlaceholderSaved": "•••••••••••• (saved)",
         "keyPlaceholderEmpty": "Paste your API key",
         "toolsSection": "Tools enabled on calls",
+        "voicePipelineSection": "Voice pipeline",
+        "voicePipelineHint": "Which speech-to-text and text-to-speech providers this agent uses, plus their API keys below.",
         "cancel": "Cancel",
+        "back": "Back",
+        "next": "Next",
         "save": "Save changes",
-        "create": "Create draft"
+        "create": "Create draft",
+        "stepProgress": "Step {current} of {total}",
+        "stepSaved": "Saved",
+        "stepName": {
+          "basics": "Basics",
+          "brain": "Voice & Brain",
+          "voicePipeline": "Voice pipeline",
+          "tools": "Tools"
+        }
       },
       "numberDialog": {
         "title": "Connect a phone number",
         "description": "Search and provision a number. This may incur charges from the telephony provider.",
         "providerLabel": "Provider",
-        "search": "Search available numbers"
+        "search": "Search available numbers",
+        "byokHint": "Uses the Twilio account connected from the New Voice Agent dialog. Add your Twilio credentials there first if you haven't."
+      },
+      "settingsDialog": {
+        "dialogTitle": "Voice Agent settings",
+        "title": "Twilio (Voice Agent phone numbers)",
+        "description": "Bring your own Twilio account to buy and manage phone numbers for Voice Agents under your own billing — an alternative to Kin's free shared option.",
+        "connected": "Connected",
+        "savedNote": "Twilio credentials saved.",
+        "remove": "Remove",
+        "cancel": "Cancel",
+        "confirmRemove": "Yes, remove",
+        "accountSidPlaceholder": "Account SID",
+        "authTokenPlaceholder": "Auth Token",
+        "trunkSidPlaceholder": "SIP Trunk SID",
+        "setupHint": "Create a SIP trunk in your Twilio console and paste its details above — we handle the LiveKit side automatically, no other setup needed.",
+        "save": "Save Twilio credentials",
+        "saved": "Saved",
+        "saveError": "Could not save your Twilio credentials"
       }
     },
     "settings": {
@@ -1133,7 +1187,7 @@
       },
       "apiKeys": {
         "title": "API keys",
-        "sub": "Bring your own key to use OpenAI, Anthropic, or OpenRouter models instead of the built-in Gemini default.",
+        "sub": "Bring your own key to use OpenAI, Anthropic, xAI, or OpenRouter models instead of the built-in Gemini default.",
         "loading": "Loading your keys…",
         "loadError": "Could not load your API keys",
         "noKeys": "No keys added yet — Kin uses the built-in Gemini model until you add one.",
@@ -1151,7 +1205,8 @@
         "providers": {
           "openai": "OpenAI",
           "anthropic": "Anthropic",
-          "openrouter": "OpenRouter"
+          "openrouter": "OpenRouter",
+          "xai": "xAI Grok"
         }
       },
       "dangerZone": {
