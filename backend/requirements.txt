@@ -39,7 +39,7 @@ Pillow==12.3.0
 coincurve==21.0.0
 # Nostr's relay protocol (publishing an EVENT) is WebSocket-only — no HTTP
 # fallback exists in the spec — hence this second Nostr-only dependency.
-websockets==15.0.1
+websockets==17.1
 openai==2.54.0
 anthropic==0.76.0
 # litellm — unified LLM-calling layer (app/core/llm.py). Stage 0 of a staged
