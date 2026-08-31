@@ -7,7 +7,7 @@
 # passes after upgrading any of these, same as before this change, just now
 # with a known-good baseline to diff from instead of "whatever pip resolves
 # today".
-fastapi==0.136.1
+fastapi==0.141.1
 uvicorn==0.46.0
 google-genai==2.18.0
 supabase==2.30.0
