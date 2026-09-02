@@ -15,6 +15,7 @@ class BlueskyProvider(SocialProvider):
     identifier = "bluesky"
     name = "Bluesky"
     oauth2 = False
+    supports_mention = True
 
     async def connect_manual(self, form: dict[str, Any]) -> dict[str, Any]:
         identifier = (form.get("username") or "").strip()
@@ -87,6 +88,27 @@ class BlueskyProvider(SocialProvider):
         handle = credentials.get("identifier", "")
         url = f"https://bsky.app/profile/{handle}/post/{rkey}" if rkey else ""
         return {"status": "posted", "postId": uri, "releaseURL": url}
+
+    async def mention(self, query: str, credentials: dict[str, Any]) -> list[dict[str, Any]]:
+        if not query:
+            return []
+        pds_url = credentials["pds_url"]
+        res = await request_with_retry(
+            "GET", f"{pds_url}/xrpc/app.bsky.actor.searchActorsTypeahead",
+            headers={"Authorization": f"Bearer {credentials['access_jwt']}"},
+            params={"q": query, "limit": 8},
+        )
+        if res.status_code >= 400:
+            return []
+        return [
+            {
+                "id": actor.get("did", ""),
+                "username": actor.get("handle", ""),
+                "name": actor.get("displayName") or actor.get("handle", ""),
+                "avatarUrl": actor.get("avatar"),
+            }
+            for actor in res.json().get("actors", [])
+        ]
 
     async def fetch_analytics(self, post_id: str, credentials: dict[str, Any]) -> dict[str, Any]:
         if not post_id:

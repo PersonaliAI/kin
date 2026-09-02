@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import json
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
@@ -15,6 +17,7 @@ from fastapi import (
     Request,
     UploadFile,
 )
+from fastapi.responses import StreamingResponse
 
 from plugins import memory as mem
 
@@ -29,7 +32,6 @@ from main import (
     PAID_PLANS,
     _credentials_fernet,
     _fmt_tokens,
-    _hash_api_key,
     _load_history,
     _month_start_iso,
     _persist,
@@ -218,6 +220,126 @@ async def web_chat(
     return ChatResponse(reply=reply, session_id=sid, thinking=thinking)
 
 
+@router.post("/api/chat/stream")
+async def web_chat_stream(
+    background_tasks: BackgroundTasks,
+    text: str = Form(""),
+    session_id: str = Form(""),
+    audio: Optional[UploadFile] = File(None),
+    user: dict[str, Any] = Depends(require_user),
+):
+    """Same turn as /api/chat, but emits Server-Sent Events as it goes: a
+    `{"type": "tool", "name": ...}` event right before each tool call runs
+    (see run_assistant's on_event param), then one final `{"type": "done", ...}`
+    event carrying the same payload /api/chat returns in one shot. The
+    reply text itself is NOT streamed token-by-token — only which tool is
+    currently running is live; the answer still lands as one chunk in the
+    "done" event. Kept as a separate endpoint (not a query param on
+    /api/chat) so a non-streaming caller's code path is untouched.
+    """
+    audio_bytes: Optional[bytes] = None
+    audio_mime: Optional[str] = None
+    if audio is not None:
+        audio_bytes = await audio.read()
+        audio_mime = audio.content_type or "audio/webm"
+    if not text and not audio_bytes:
+        raise HTTPException(status_code=400, detail="text or audio required")
+
+    if audio_bytes and plan_for(user) not in PAID_PLANS:
+        raise HTTPException(
+            status_code=403,
+            detail="Voice messages are a Basic+ feature. Upgrade at /dashboard/billing, or just type instead.",
+        )
+
+    used, limit = quota_state(user)
+    if used >= limit:
+        raise HTTPException(
+            status_code=429,
+            detail=(
+                f"You've used your {_fmt_tokens(limit)} token allowance on the "
+                f"{plan_for(user)} plan this month. Upgrade to keep chatting."
+            ),
+        )
+
+    sid = session_id or f"web-{user['id']}"
+
+    pref_res = (
+        supabase.table("users")
+        .select("preferred_provider, preferred_model")
+        .eq("id", user["id"])
+        .single()
+        .execute()
+    )
+    preferred_provider = (pref_res.data or {}).get("preferred_provider") or "gemini"
+    preferred_model = (pref_res.data or {}).get("preferred_model")
+
+    async def event_stream():
+        def sse(payload: dict[str, Any]) -> str:
+            return f"data: {json.dumps(payload)}\n\n"
+
+        queue: asyncio.Queue = asyncio.Queue()
+
+        async def on_event(ev: dict[str, Any]) -> None:
+            await queue.put(ev)
+
+        async def do_run() -> dict[str, Any]:
+            if preferred_provider in BYOK_PROVIDERS:
+                if audio_bytes:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Voice messages aren't supported with a BYOK provider yet — switch to Gemini to send audio.",
+                    )
+                started = time.monotonic()
+                _persist(user_id=user["id"], role="user", content=text, source="web", session_id=sid)
+                reply = await _byok_chat_reply(
+                    user=user, provider=preferred_provider, preferred_model=preferred_model,
+                    text=text, session_id=sid,
+                )
+                _persist(
+                    user_id=user["id"], role="assistant", content=reply, source="web", session_id=sid,
+                    latency_ms=int((time.monotonic() - started) * 1000),
+                    model=f"{preferred_provider}/{preferred_model or DEFAULT_MODELS.get(preferred_provider, '')}",
+                )
+                return {"reply": reply, "thinking": None}
+            return await run_assistant(
+                user=user,
+                text=text,
+                audio_bytes=audio_bytes,
+                audio_mime=audio_mime,
+                source="web",
+                session_id=sid,
+                on_event=on_event,
+            )
+
+        task = asyncio.ensure_future(do_run())
+        try:
+            while not task.done():
+                try:
+                    ev = await asyncio.wait_for(queue.get(), timeout=0.25)
+                    yield sse(ev)
+                except asyncio.TimeoutError:
+                    continue
+            while not queue.empty():
+                yield sse(queue.get_nowait())
+
+            result = task.result()  # re-raises whatever do_run() raised, if anything
+            reply = result["reply"]
+            thinking = result.get("thinking") or None
+
+            if text:
+                background_tasks.add_task(
+                    mem.extract_and_store, supabase, genai_client,
+                    user=user, user_msg=text, assistant_reply=reply, session_id=sid,
+                )
+            yield sse({"type": "done", "reply": reply, "thinking": thinking, "session_id": sid})
+        except HTTPException as exc:
+            yield sse({"type": "error", "message": str(exc.detail)})
+        except Exception as exc:  # noqa: BLE001
+            yield sse({"type": "error", "message": f"assistant failed: {exc}"})
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
 @router.get("/api/usage")
 async def usage(user: dict[str, Any] = Depends(require_user)):
     # Fetched once and reused for quota_state() below — this endpoint used
@@ -309,19 +431,6 @@ async def usage_llm(user: dict[str, Any] = Depends(require_user)):
     }
 
 
-def _resolve_kin_api_key(authorization: Optional[str]) -> dict[str, Any]:
-    if not authorization or not authorization.lower().startswith("bearer "):
-        raise HTTPException(status_code=401, detail="Missing Bearer API key")
-    raw = authorization.split(" ", 1)[1].strip()
-    res = supabase.table("kin_api_keys").select("*").eq("key_hash", _hash_api_key(raw)).execute()
-    if not res.data:
-        raise HTTPException(status_code=401, detail="Invalid API key")
-    key_row = res.data[0]
-    if key_row.get("revoked"):
-        raise HTTPException(status_code=401, detail="API key revoked")
-    return key_row
-
-
 @router.post("/api/v1/messages")
 async def kin_public_api_message(
     request: Request,
@@ -353,7 +462,7 @@ async def kin_public_api_message(
         # keys is still capped).
         _sec.check_ip_rate(request, limit=120, window=60)
 
-        key_row = _resolve_kin_api_key(authorization)
+        key_row = _sec.resolve_kin_api_key(authorization)
         _sec.check_key_rate(key_row["id"], limit=60, window=60)
         _sec.check_ip_allowlist(key_row, request)
         _sec.check_scope(key_row, "chat")

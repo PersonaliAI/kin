@@ -28,6 +28,7 @@ class XProvider(SocialProvider):
     max_concurrent_jobs = 1
     oauth2 = True
     uses_pkce = True
+    supports_comment = True
 
     def generate_auth_url(self, state: str, pkce_challenge: Optional[str] = None) -> str:
         params = {
@@ -142,6 +143,8 @@ class XProvider(SocialProvider):
         reply_settings = {"followed": "following", "mentioned": "mentionedUsers"}.get(settings.get("reply_privacy", ""))
         if reply_settings:
             body["reply_settings"] = reply_settings
+        if settings.get("community_id"):
+            body["community_id"] = settings["community_id"]
         if media_urls:
             media_id = await self._upload_media(media_urls[0], credentials)
             if media_id:

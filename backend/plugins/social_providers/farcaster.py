@@ -51,9 +51,12 @@ class FarcasterProvider(SocialProvider):
         media_urls: Optional[list[str]] = None,
         settings: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
+        settings = settings or {}
         body: dict[str, Any] = {"signer_uuid": credentials["signer_uuid"], "text": content[:320]}
         if media_urls:
             body["embeds"] = [{"url": media_urls[0]}]
+        if settings.get("channel_id"):
+            body["channel_id"] = settings["channel_id"]
         res = await request_with_retry(
             "POST", f"{API_BASE}/cast", headers={"api_key": _api_key(), "Content-Type": "application/json"}, json=body
         )

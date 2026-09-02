@@ -60,6 +60,18 @@ class SocialProvider(ABC):
     #: pkce_challenge/pkce_verifier into generate_auth_url/exchange_code.
     uses_pkce: bool = False
 
+    #: True if comment() is actually implemented (posts a reply to a parent
+    #: post on the real platform) rather than raising NotImplementedError.
+    #: Drives whether the composer's "Add Comment" control is offered for
+    #: this platform — see social.py's /api/social/integrations.
+    supports_comment: bool = False
+
+    #: True if mention() does a real @-mention lookup rather than returning
+    #: an empty list. Most platforms don't expose a public user-search API
+    #: to third-party apps (Instagram/Facebook/LinkedIn all lock this down),
+    #: so this is opt-in per provider rather than assumed.
+    supports_mention: bool = False
+
     def generate_auth_url(self, state: str, pkce_challenge: Optional[str] = None) -> str:
         raise NotImplementedError(f"{self.identifier} does not support OAuth2 redirect connect")
 
@@ -98,6 +110,13 @@ class SocialProvider(ABC):
 
     async def comment(self, post_id: str, content: str, credentials: dict[str, Any]) -> dict[str, Any]:
         raise NotImplementedError(f"{self.identifier} does not support comments")
+
+    async def mention(self, query: str, credentials: dict[str, Any]) -> list[dict[str, Any]]:
+        """@-mention autocomplete search. Returns matches as
+        {"id", "username", "name", "avatarUrl"}. Default: no results —
+        overridden only by providers whose platform exposes a real user
+        search API (see supports_mention)."""
+        return []
 
     @abstractmethod
     async def fetch_analytics(self, post_id: str, credentials: dict[str, Any]) -> dict[str, Any]:

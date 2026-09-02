@@ -46,6 +46,7 @@ class HashnodeProvider(SocialProvider):
         media_urls: Optional[list[str]] = None,
         settings: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
+        settings = settings or {}
         title, _, body = content.partition("\n")
         title = title[:250] or "New post"
         mutation = """
@@ -53,12 +54,14 @@ class HashnodeProvider(SocialProvider):
           publishPost(input: $input) { post { id url } }
         }
         """
+        tags = [t.strip() for t in (settings.get("tags") or []) if t.strip()]
         variables = {
             "input": {
                 "title": title,
                 "publicationId": credentials["publication_id"],
                 "contentMarkdown": body or content,
                 **({"coverImageOptions": {"coverImageURL": media_urls[0]}} if media_urls else {}),
+                **({"tags": [{"name": t, "slug": t.lower().replace(" ", "-")} for t in tags]} if tags else {}),
             }
         }
         data = await _gql(credentials["api_key"], mutation, variables)

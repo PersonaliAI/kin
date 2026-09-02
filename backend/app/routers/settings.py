@@ -8,12 +8,13 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from app.core import security as _sec
 from app.core.clients import supabase
 from app.core.deps import require_user
 from app.core.llm_catalog import ALL_PROVIDERS as LLM_PROVIDERS
 from app.schemas.settings import FlowCredentialsSave, KinApiKeyCreate, SettingsPatch
 
-from main import MAX_KIN_API_KEYS, PAID_PLANS, PRO_PLUS_PLANS, _credentials_fernet, _hash_api_key, plan_for
+from main import MAX_KIN_API_KEYS, PAID_PLANS, PRO_PLUS_PLANS, _credentials_fernet, plan_for
 
 logger = logging.getLogger("kin")
 
@@ -27,7 +28,13 @@ router = APIRouter()
 # limits regardless of plan, so the real thing opening this up needed a cap
 # on was key *count*, not request volume. See main.py's MAX_KIN_API_KEYS.
 
-_KIN_API_KEY_PREFIX = "kin_sk_"
+# chat+read are always granted (the historical default, kept for every key
+# so existing integrations built before scope selection existed keep
+# working unchanged). "write" is the only scope a user can additionally
+# opt into here — "admin" is a super-scope reserved for keys granted some
+# other way, never self-service.
+_BASE_SCOPES = ["chat", "read"]
+_SELF_SERVICE_SCOPES = {"write"}
 
 
 @router.post("/api/kin/api-keys")
@@ -35,12 +42,15 @@ async def create_kin_api_key(body: KinApiKeyCreate, user: dict[str, Any] = Depen
     existing = supabase.table("kin_api_keys").select("id", count="exact").eq("user_id", user["id"]).eq("revoked", False).execute()
     if (existing.count or 0) >= MAX_KIN_API_KEYS:
         raise HTTPException(status_code=400, detail=f"You can have at most {MAX_KIN_API_KEYS} active API keys — revoke one first.")
-    raw = _KIN_API_KEY_PREFIX + secrets.token_hex(24)
+    requested = set(body.scopes or []) & _SELF_SERVICE_SCOPES
+    scopes = _BASE_SCOPES + sorted(requested)
+    raw = _sec.KIN_API_KEY_PREFIX + secrets.token_hex(24)
     row = supabase.table("kin_api_keys").insert({
         "user_id": user["id"],
         "name": body.name or "API key",
-        "key_hash": _hash_api_key(raw),
-        "key_prefix": raw[: len(_KIN_API_KEY_PREFIX) + 6],
+        "key_hash": _sec.hash_api_key(raw),
+        "key_prefix": raw[: len(_sec.KIN_API_KEY_PREFIX) + 6],
+        "scopes": scopes,
     }).execute()
     return {**row.data[0], "key": raw}  # raw key only ever returned on creation
 
@@ -49,7 +59,7 @@ async def create_kin_api_key(body: KinApiKeyCreate, user: dict[str, Any] = Depen
 async def list_kin_api_keys(user: dict[str, Any] = Depends(require_user)):
     res = (
         supabase.table("kin_api_keys")
-        .select("id, name, key_prefix, revoked, request_count, last_used_at, created_at")
+        .select("id, name, key_prefix, scopes, revoked, request_count, last_used_at, created_at")
         .eq("user_id", user["id"])
         .order("created_at", desc=True)
         .execute()

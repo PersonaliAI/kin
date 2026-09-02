@@ -37,6 +37,7 @@ class ListmonkProvider(SocialProvider):
         media_urls: Optional[list[str]] = None,
         settings: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
+        settings = settings or {}
         domain = credentials["domain"]
         auth = (credentials["api_user"], credentials["api_key"])
         title, _, body = content.partition("\n")
@@ -44,13 +45,14 @@ class ListmonkProvider(SocialProvider):
         html = (body or content).replace("\n", "<br>")
         if media_urls:
             html = f'<img src="{media_urls[0]}" /><br>{html}'
+        list_id = settings.get("list_id") or credentials["list_id"]
 
         create_res = await request_with_retry(
             "POST", f"{domain}/api/campaigns", auth=auth,
             json={
                 "name": subject,
                 "subject": subject,
-                "lists": [credentials["list_id"]],
+                "lists": [list_id],
                 "type": "regular",
                 "content_type": "html",
                 "body": html,

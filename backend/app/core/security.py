@@ -11,6 +11,7 @@ Provides:
 """
 from __future__ import annotations
 
+import hashlib
 import hmac
 import ipaddress
 import logging
@@ -21,7 +22,35 @@ from typing import Any, Optional
 from fastapi import HTTPException, Request
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from app.core.clients import supabase
+
 logger = logging.getLogger("kin.security")
+
+# "kin_sk_<48 hex chars>" — the only Kin API key format (see hash_api_key()/
+# resolve_kin_api_key() below). Public so callers building the raw key
+# string (settings.py's create_kin_api_key) share the exact same prefix.
+KIN_API_KEY_PREFIX = "kin_sk_"
+
+
+def hash_api_key(raw: str) -> str:
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
+def resolve_kin_api_key(authorization: Optional[str]) -> dict[str, Any]:
+    """Look up and validate a Kin API key from an `Authorization: Bearer
+    <key>` header. Shared by every /api/v1/* router (chat.py's
+    /api/v1/messages, social.py's /api/v1/social/*) so key resolution can't
+    drift between them."""
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Missing Bearer API key")
+    raw = authorization.split(" ", 1)[1].strip()
+    res = supabase.table("kin_api_keys").select("*").eq("key_hash", hash_api_key(raw)).execute()
+    if not res.data:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+    key_row = res.data[0]
+    if key_row.get("revoked"):
+        raise HTTPException(status_code=401, detail="API key revoked")
+    return key_row
 
 
 # ---------------------------------------------------------------------------
@@ -210,7 +239,7 @@ def check_ip_allowlist(key_row: dict[str, Any], request: Request) -> None:
         status_code=403,
         detail=(
             f"IP address {client_ip!r} is not permitted for this API key. "
-            "Update the allowlist in your Chatty dashboard → API Keys."
+            "Update the allowlist in your Kin dashboard → Developer → API Keys."
         ),
     )
 
@@ -220,10 +249,15 @@ def check_ip_allowlist(key_row: dict[str, Any], request: Request) -> None:
 # ---------------------------------------------------------------------------
 
 # Available scopes and what they grant:
-#   chat   — call /api/v1/chat (send messages to the bot)
-#   read   — read leads, conversations, usage, bot metadata, knowledge sources
-#   write  — add/delete knowledge sources, manage conversation sessions
-#   admin  — all of the above (super-scope; granted to dashboard-created keys)
+#   chat   — call /api/v1/messages (send messages to the bot)
+#   read   — read leads, conversations, usage, bot metadata, knowledge
+#            sources, and /api/v1/social/* GET endpoints (posts, accounts,
+#            analytics, best-time slots)
+#   write  — add/delete knowledge sources, manage conversation sessions,
+#            and /api/v1/social/* mutating endpoints (create/update/delete
+#            posts, upload media)
+#   admin  — all of the above (super-scope; not self-service — see
+#            create_kin_api_key's _SELF_SERVICE_SCOPES)
 VALID_SCOPES = {"chat", "read", "write", "admin"}
 _DEFAULT_SCOPES = ["chat", "read"]
 
@@ -241,7 +275,7 @@ def check_scope(key_row: dict[str, Any], required: str) -> None:
         detail=(
             f"This API key is missing the '{required}' scope. "
             f"Current scopes: {scopes}. "
-            "Update your key's scopes in the Chatty dashboard → API Keys."
+            "Update your key's scopes in the Kin dashboard → Developer → API Keys."
         ),
     )
 

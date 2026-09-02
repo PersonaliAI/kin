@@ -29,6 +29,7 @@ class FacebookProvider(SocialProvider):
     identifier = "facebook"
     name = "Facebook"
     oauth2 = True
+    supports_comment = True
 
     def generate_auth_url(self, state: str) -> str:
         params = {

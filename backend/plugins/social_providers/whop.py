@@ -41,12 +41,14 @@ class WhopProvider(SocialProvider):
         media_urls: Optional[list[str]] = None,
         settings: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
+        settings = settings or {}
+        forum_id = settings.get("forum_id") or credentials["forum_id"]
         headers = {"Authorization": f"Bearer {credentials['api_key']}", "Content-Type": "application/json"}
         body: dict[str, Any] = {"content": content}
         if media_urls:
             body["attachments"] = [{"url": media_urls[0]}]
         res = await request_with_retry(
-            "POST", f"{API_BASE}/forums/{credentials['forum_id']}/posts", headers=headers, json=body
+            "POST", f"{API_BASE}/forums/{forum_id}/posts", headers=headers, json=body
         )
         if res.status_code >= 400:
             raise SocialPostError(f"whop post failed ({res.status_code}): {res.text}")

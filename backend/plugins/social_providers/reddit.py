@@ -57,7 +57,11 @@ class RedditProvider(OAuth2Mixin, SocialProvider):
         media_urls: Optional[list[str]] = None,
         settings: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
-        subreddit = credentials.get("subreddit")
+        settings = settings or {}
+        # A per-post subreddit (settings.subreddit) overrides the account's
+        # default target — lets one connected account post to different
+        # subreddits per post instead of always crossposting to itself.
+        subreddit = settings.get("subreddit") or credentials.get("subreddit")
         if not subreddit:
             raise SocialPostError("reddit: no target subreddit configured for this account")
         title, _, body = content.partition("\n")
@@ -66,11 +70,19 @@ class RedditProvider(OAuth2Mixin, SocialProvider):
             "Authorization": f"Bearer {credentials['access_token']}",
             "User-Agent": USER_AGENT,
         }
-        data = {
+        data: dict[str, Any] = {
             "sr": subreddit,
             "title": title,
             "api_type": "json",
         }
+        if settings.get("flair_id"):
+            data["flair_id"] = settings["flair_id"]
+        if settings.get("flair_text"):
+            data["flair_text"] = settings["flair_text"]
+        if settings.get("nsfw"):
+            data["nsfw"] = "true"
+        if settings.get("spoiler"):
+            data["spoiler"] = "true"
         if media_urls:
             data["kind"] = "image"
             data["url"] = media_urls[0]

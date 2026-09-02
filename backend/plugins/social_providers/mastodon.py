@@ -16,6 +16,8 @@ class MastodonProvider(SocialProvider):
     identifier = "mastodon"
     name = "Mastodon"
     oauth2 = False
+    supports_comment = True
+    supports_mention = True
 
     async def connect_manual(self, form: dict[str, Any]) -> dict[str, Any]:
         instance = (form.get("instance_url") or "").strip().rstrip("/")
@@ -40,6 +42,7 @@ class MastodonProvider(SocialProvider):
         media_urls: Optional[list[str]] = None,
         settings: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
+        settings = settings or {}
         instance = credentials["instance_url"]
         headers = {"Authorization": f"Bearer {credentials['access_token']}"}
         media_ids = []
@@ -52,9 +55,19 @@ class MastodonProvider(SocialProvider):
             if up.status_code < 400:
                 media_ids = [up.json().get("id")]
 
+        body: dict[str, Any] = {"status": content}
+        if media_ids:
+            body["media_ids"] = media_ids
+        visibility = settings.get("visibility")
+        if visibility in ("public", "unlisted", "private", "direct"):
+            body["visibility"] = visibility
+        content_warning = settings.get("content_warning")
+        if content_warning:
+            body["spoiler_text"] = content_warning
+            body["sensitive"] = True
+
         res = await request_with_retry(
-            "POST", f"{instance}/api/v1/statuses", headers=headers,
-            json={"status": content, "media_ids": media_ids} if media_ids else {"status": content},
+            "POST", f"{instance}/api/v1/statuses", headers=headers, json=body,
         )
         if res.status_code >= 400:
             raise SocialPostError(f"mastodon post failed ({res.status_code}): {res.text}")
@@ -71,6 +84,27 @@ class MastodonProvider(SocialProvider):
         if res.status_code >= 400:
             raise SocialPostError(f"mastodon reply failed: {res.text}")
         return {"status": "posted", "postId": str(res.json().get("id", "")), "releaseURL": ""}
+
+    async def mention(self, query: str, credentials: dict[str, Any]) -> list[dict[str, Any]]:
+        if not query:
+            return []
+        instance = credentials["instance_url"]
+        res = await request_with_retry(
+            "GET", f"{instance}/api/v1/accounts/search",
+            headers={"Authorization": f"Bearer {credentials['access_token']}"},
+            params={"q": query, "limit": 8, "resolve": "false"},
+        )
+        if res.status_code >= 400:
+            return []
+        return [
+            {
+                "id": acct.get("id", ""),
+                "username": acct.get("username", ""),
+                "name": acct.get("display_name") or acct.get("username", ""),
+                "avatarUrl": acct.get("avatar"),
+            }
+            for acct in res.json()
+        ]
 
     async def fetch_analytics(self, post_id: str, credentials: dict[str, Any]) -> dict[str, Any]:
         if not post_id:

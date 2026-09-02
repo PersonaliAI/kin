@@ -29,21 +29,34 @@ logger = logging.getLogger("kin")
 _API_DESCRIPTION = """
 ## Kin Public API — v1
 
-Programmatic access to your own Kin assistant (Executive plan) — send it a
-message the same way the web chat does.
+Programmatic access to your own Kin — send it a message the same way the web
+chat does, or manage your connected Social accounts and posts.
 
 ### Authentication
 
-`POST /api/v1/messages` requires a **Bearer API key**, created in
-**Dashboard → API Keys**:
+Every endpoint below requires a **Bearer API key**, created in
+**Dashboard → Developer → API Keys**:
 
 ```
 Authorization: Bearer kin_sk_<your-key>
 ```
 
-Keys carry `scopes` (currently: `chat`, `read`, `write`, `admin` as a
-super-scope) and an optional `allowed_ips` allowlist, both configurable per
-key.
+Keys carry `scopes` (`chat`, `read`, `write`, `admin` as a super-scope) and
+an optional `allowed_ips` allowlist, both configurable per key. New keys
+always get `chat`+`read`; opt into `write` when creating one if you need to
+schedule posts or upload media.
+
+### Endpoints
+
+* `POST /api/v1/messages` — send a message to your Kin (scope: `chat`)
+* `GET /api/v1/social/accounts` — list connected social accounts (`read`)
+* `GET /api/v1/social/posts` — list your social posts, optional `?state=` filter (`read`)
+* `POST /api/v1/social/posts` — create/schedule a post (`write`)
+* `PATCH /api/v1/social/posts/{post_id}` — update a post (`write`)
+* `DELETE /api/v1/social/posts/{post_id}` — delete a post (`write`)
+* `POST /api/v1/social/media` — upload an image/video for a post (`write`)
+* `GET /api/v1/social/analytics` — aggregate post analytics (`read`)
+* `GET /api/v1/social/best-time?account_id=...` — suggest open posting slots for an account (`read`)
 
 ### Rate limits
 

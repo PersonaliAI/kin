@@ -35,16 +35,29 @@ class MediumProvider(SocialProvider):
         media_urls: Optional[list[str]] = None,
         settings: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
+        settings = settings or {}
         title, _, body = content.partition("\n")
         title = title[:250] or "New post"
         markdown = body or content
         if media_urls:
             markdown = f"![]({media_urls[0]})\n\n{markdown}"
+        publish_status = settings.get("publish_status")
+        payload: dict[str, Any] = {
+            "title": title,
+            "contentFormat": "markdown",
+            "content": markdown,
+            "publishStatus": publish_status if publish_status in ("public", "draft", "unlisted") else "public",
+        }
+        tags = [t.strip() for t in (settings.get("tags") or []) if t.strip()]
+        if tags:
+            payload["tags"] = tags[:5]
+        if settings.get("canonical_url"):
+            payload["canonicalUrl"] = settings["canonical_url"]
         res = await request_with_retry(
             "POST",
             f"https://api.medium.com/v1/users/{credentials['user_id']}/posts",
             headers={"Authorization": f"Bearer {credentials['api_key']}", "Content-Type": "application/json"},
-            json={"title": title, "contentFormat": "markdown", "content": markdown, "publishStatus": "public"},
+            json=payload,
         )
         if res.status_code >= 400:
             raise SocialPostError(f"medium post failed ({res.status_code}): {res.text}")

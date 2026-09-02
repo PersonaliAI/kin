@@ -6,6 +6,7 @@ FACEBOOK_APP_SECRET; INSTAGRAM_REDIRECT_URI for the callback route.
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any, Optional
 from urllib.parse import urlencode
 
@@ -88,17 +89,50 @@ class InstagramProvider(SocialProvider):
     ) -> dict[str, Any]:
         if not media_urls:
             raise SocialPostError("instagram: posts require an image or video")
+        settings = settings or {}
         ig_user_id = credentials["ig_user_id"]
         access_token = credentials["access_token"]
+        media_url = media_urls[0]
+        # "post_type" comes from the composer's Instagram settings block:
+        # "post_reel" (feed post/reel) or "story". Previously ignored
+        # entirely — every upload was posted as a plain feed image, so a
+        # video upload would silently fail (image_url can't take a video).
+        post_type = settings.get("post_type", "post_reel")
+        is_video = media_url.split("?", 1)[0].lower().endswith((".mp4", ".mov", ".m4v", ".webm"))
+
+        container_data: dict[str, Any] = {"caption": content, "access_token": access_token}
+        if is_video:
+            container_data["video_url"] = media_url
+            container_data["media_type"] = "STORIES" if post_type == "story" else "REELS"
+        else:
+            container_data["image_url"] = media_url
+            if post_type == "story":
+                container_data["media_type"] = "STORIES"
 
         container_res = await request_with_retry(
             "POST",
             f"https://graph.facebook.com/{GRAPH_VERSION}/{ig_user_id}/media",
-            data={"image_url": media_urls[0], "caption": content, "access_token": access_token},
+            data=container_data,
         )
         if container_res.status_code >= 400:
             raise SocialPostError(f"instagram media container failed: {container_res.text}")
         creation_id = container_res.json().get("id")
+
+        if is_video:
+            # Video/reel containers process asynchronously on Meta's side —
+            # publishing before FINISHED just fails, so poll briefly first.
+            for _ in range(15):
+                status_res = await request_with_retry(
+                    "GET",
+                    f"https://graph.facebook.com/{GRAPH_VERSION}/{creation_id}",
+                    params={"fields": "status_code", "access_token": access_token},
+                )
+                status_code = status_res.json().get("status_code") if status_res.status_code < 400 else None
+                if status_code == "FINISHED":
+                    break
+                if status_code == "ERROR":
+                    raise SocialPostError("instagram: video processing failed")
+                await asyncio.sleep(2)
 
         publish_res = await request_with_retry(
             "POST",
