@@ -1,6 +1,17 @@
 livekit-agents==1.6.10
 livekit-plugins-openai==1.6.10
 livekit-plugins-anthropic==1.6.10
+# Pinned explicitly: livekit-plugins-anthropic only declares `anthropic>=0.41`
+# (no upper bound), so an unconstrained install resolves the latest anthropic
+# release. anthropic 1.0.0 upgraded its internal HTTP client to a vendored/
+# renamed `httpx2`, and livekit-plugins-anthropic 1.6.10 (as of this pin)
+# still constructs it with a plain httpx.AsyncClient — that mismatch is what
+# throws `TypeError: Invalid http_client argument; Expected an instance of
+# httpx2.AsyncClient but got <class 'httpx.AsyncClient'>` the moment the LLM
+# client is built. 0.125.0 is the last pre-httpx2 release. Bump this pin
+# alongside livekit-plugins-anthropic once it's confirmed compatible with a
+# 1.x anthropic release.
+anthropic==0.125.0
 livekit-plugins-google==1.6.10
 livekit-plugins-xai==1.6.10
 livekit-plugins-deepgram==1.6.10
