@@ -1,4 +1,4 @@
-livekit-agents==1.6.10
+livekit-agents==1.7.1
 livekit-plugins-openai==1.6.10
 livekit-plugins-anthropic==1.6.10
 # Pinned explicitly: livekit-plugins-anthropic only declares `anthropic>=0.41`
