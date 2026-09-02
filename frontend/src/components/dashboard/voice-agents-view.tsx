@@ -22,7 +22,7 @@ import { Select, type SelectOption } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogFooter, Field, inputCls, textareaCls } from "./dialog";
 import { VoiceAgentTestCallDialog, TestInBrowserButton } from "./voice-agent-test-call";
-import { TwilioByokSection } from "./voice-agent-settings";
+import { TelephonyByokSection } from "./voice-agent-settings";
 import {
   voiceAgentsApi,
   type VoiceAgent,
@@ -223,9 +223,8 @@ export function VoiceAgentsView() {
   const sttProviderOptions: SelectOption[] = STT_PROVIDERS.map((p) => ({ value: p, label: t(`sttProvider.${p}`) }));
   const ttsProviderOptions: SelectOption[] = TTS_PROVIDERS.map((p) => ({ value: p, label: t(`ttsProvider.${p}`) }));
   const telephonyProviderOptions: SelectOption[] = [
-    { value: "twilio_managed", label: t("telephonyProvider.twilio_managed") },
-    { value: "telnyx_managed", label: t("telephonyProvider.telnyx_managed") },
     { value: "twilio_byok", label: t("telephonyProvider.twilio_byok") },
+    { value: "telnyx_byok", label: t("telephonyProvider.telnyx_byok") },
   ];
 
   const [agents, setAgents] = useState<VoiceAgent[]>([]);
@@ -260,7 +259,7 @@ export function VoiceAgentsView() {
 
   const [numberDialogAgent, setNumberDialogAgent] = useState<VoiceAgent | null>(null);
   const [browserTestAgent, setBrowserTestAgent] = useState<VoiceAgent | null>(null);
-  const [numberProvider, setNumberProvider] = useState<"twilio_managed" | "telnyx_managed" | "twilio_byok">("twilio_managed");
+  const [numberProvider, setNumberProvider] = useState<"twilio_byok" | "telnyx_byok">("twilio_byok");
   const [numberResults, setNumberResults] = useState<{ phone_number: string; locality?: string }[]>([]);
   const [numberSearching, setNumberSearching] = useState(false);
 
@@ -560,7 +559,7 @@ export function VoiceAgentsView() {
           </button>
         </div>
 
-        <TwilioByokSection />
+        <TelephonyByokSection />
         <div className="border-t border-border my-5" />
 
         {/* Step progress */}
@@ -1165,17 +1164,15 @@ export function VoiceAgentsView() {
           <Field label={t("numberDialog.providerLabel")}>
             <Select
               value={numberProvider}
-              onChange={(v) => setNumberProvider(v as "twilio_managed" | "telnyx_managed" | "twilio_byok")}
+              onChange={(v) => setNumberProvider(v as "twilio_byok" | "telnyx_byok")}
               options={telephonyProviderOptions}
               disabled={actionLoading}
             />
           </Field>
 
-          {numberProvider === "twilio_byok" && (
-            <p className="text-[11px] text-muted-foreground rounded-lg border border-border bg-muted/30 px-3 py-2">
-              {t("numberDialog.byokHint")}
-            </p>
-          )}
+          <p className="text-[11px] text-muted-foreground rounded-lg border border-border bg-muted/30 px-3 py-2">
+            {t("numberDialog.byokHint")}
+          </p>
 
           <Button type="button" variant="outline" onClick={handleSearchNumbers} disabled={numberSearching} className="cursor-pointer gap-1.5 w-full">
             {numberSearching && <Loader2 className="size-3.5 animate-spin" />}
