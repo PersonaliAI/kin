@@ -52,13 +52,26 @@ class LemmyProvider(SocialProvider):
         media_urls: Optional[list[str]] = None,
         settings: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
+        settings = settings or {}
         instance = credentials["instance_url"]
         title, _, body = content.partition("\n")
+        community_id = credentials["community_id"]
+        # A per-post community name overrides the account's default target —
+        # resolved to an id the same way connect_manual does at connect time.
+        if settings.get("community"):
+            community_res = await request_with_retry(
+                "GET", f"{instance}/api/v3/community", params={"name": settings["community"]}
+            )
+            if community_res.status_code < 400:
+                resolved = community_res.json().get("community_view", {}).get("community", {}).get("id")
+                if resolved:
+                    community_id = resolved
         body_payload: dict[str, Any] = {
             "name": title[:200] or "New post",
-            "community_id": credentials["community_id"],
+            "community_id": community_id,
             "body": body or content,
             "auth": credentials["jwt"],
+            "nsfw": bool(settings.get("nsfw", False)),
         }
         if media_urls:
             body_payload["url"] = media_urls[0]

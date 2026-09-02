@@ -50,6 +50,7 @@ class TumblrProvider(OAuth2Mixin, SocialProvider):
         media_urls: Optional[list[str]] = None,
         settings: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
+        settings = settings or {}
         blog = credentials.get("blog_name")
         if not blog:
             raise SocialPostError("tumblr: no blog configured for this account")
@@ -60,7 +61,10 @@ class TumblrProvider(OAuth2Mixin, SocialProvider):
         blocks: list[dict[str, Any]] = [{"type": "text", "text": content}]
         if media_urls:
             blocks.append({"type": "image", "media": [{"url": media_urls[0]}]})
-        body = {"content": blocks, "state": "published"}
+        body: dict[str, Any] = {"content": blocks, "state": "published"}
+        tags = [t.strip() for t in (settings.get("tags") or []) if t.strip()]
+        if tags:
+            body["tags"] = ",".join(tags[:20])
         res = await request_with_retry(
             "POST", f"https://api.tumblr.com/v2/blog/{blog}/posts", headers=headers, json=body
         )

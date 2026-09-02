@@ -98,12 +98,16 @@ class ThreadsProvider(SocialProvider):
         media_urls: Optional[list[str]] = None,
         settings: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
+        settings = settings or {}
         user_id = credentials["threads_user_id"]
         access_token = credentials["access_token"]
         params: dict[str, Any] = {"text": content, "access_token": access_token}
         params["media_type"] = "IMAGE" if media_urls else "TEXT"
         if media_urls:
             params["image_url"] = media_urls[0]
+        reply_control = settings.get("reply_control")
+        if reply_control in ("everyone", "accounts_you_follow", "mentioned_only"):
+            params["reply_control"] = reply_control
 
         container_res = await request_with_retry(
             "POST", f"{API_BASE}/{user_id}/threads", params=params

@@ -40,6 +40,7 @@ class WordPressProvider(SocialProvider):
         media_urls: Optional[list[str]] = None,
         settings: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
+        settings = settings or {}
         site_url = credentials["site_url"]
         headers = {"Authorization": f"Basic {credentials['basic_auth']}"}
         title, _, body = content.partition("\n")
@@ -56,10 +57,11 @@ class WordPressProvider(SocialProvider):
             if up.status_code < 400:
                 media_id = up.json().get("id")
 
+        status = settings.get("status")
         body_payload: dict[str, Any] = {
             "title": title[:200] or "New post",
             "content": html,
-            "status": "publish",
+            "status": status if status in ("publish", "draft", "pending") else "publish",
         }
         if media_id:
             body_payload["featured_media"] = media_id

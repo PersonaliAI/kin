@@ -709,6 +709,7 @@
         "nameLabel": "Nome",
         "namePlaceholder": "es. Integrazione Zapier",
         "createKey": "Crea chiave",
+        "grantWrite": "Consenti a questa chiave di creare, modificare ed eliminare contenuti (es. pianificare post social) — disattivato per impostazione predefinita",
         "requests": "{count, plural, one {# richiesta} other {# richieste}}",
         "lastUsed": "ultimo utilizzo {date}",
         "neverUsed": "mai utilizzata",
@@ -1005,9 +1006,8 @@
         "realtime": "Tempo reale"
       },
       "telephonyProvider": {
-        "twilio_managed": "Twilio (gratuito, condiviso)",
-        "telnyx_managed": "Telnyx (gratuito, condiviso)",
         "twilio_byok": "Twilio (account proprio)",
+        "telnyx_byok": "Telnyx (account proprio)",
         "byo_sip": "Trunk SIP proprio"
       },
       "testCallDialog": {
@@ -1093,24 +1093,39 @@
         "description": "Cerca e attiva un numero. Potrebbe comportare costi da parte del fornitore di telefonia.",
         "providerLabel": "Provider",
         "search": "Cerca numeri disponibili",
-        "byokHint": "Usa l'account Twilio collegato dalla finestra Nuovo Agente Vocale. Aggiungi prima le tue credenziali Twilio se non l'hai ancora fatto."
+        "byokHint": "Usa l'account collegato per il provider selezionato dalla finestra Nuovo Agente Vocale. Aggiungi prima le tue credenziali lì se non l'hai ancora fatto."
       },
       "settingsDialog": {
         "dialogTitle": "Impostazioni Agenti Vocali",
-        "title": "Twilio — usa il tuo account",
-        "description": "Facoltativo. Acquista e gestisci numeri di telefono per gli Agenti Vocali con la tua fatturazione Twilio, invece dei numeri gratuiti condivisi di Kin (Twilio/Telnyx). Questa opzione non è ancora disponibile per Telnyx.",
         "connected": "Connesso",
-        "savedNote": "Credenziali Twilio salvate.",
         "remove": "Rimuovi",
         "cancel": "Annulla",
         "confirmRemove": "Sì, rimuovi",
-        "accountSidPlaceholder": "Account SID",
-        "authTokenPlaceholder": "Auth Token",
-        "trunkSidPlaceholder": "SIP Trunk SID",
-        "setupHint": "Crea un trunk SIP nella tua console Twilio e incolla i suoi dati sopra — configuriamo LiveKit automaticamente, non serve altro.",
-        "save": "Salva credenziali Twilio",
-        "saved": "Salvato",
-        "saveError": "Impossibile salvare le credenziali Twilio"
+        "twilio": {
+          "title": "Twilio — usa il tuo account",
+          "description": "Acquista e gestisci numeri di telefono per gli Agenti Vocali con la tua fatturazione Twilio.",
+          "savedNote": "Credenziali Twilio salvate.",
+          "accountSidPlaceholder": "Account SID",
+          "authTokenPlaceholder": "Auth Token",
+          "trunkSidPlaceholder": "SIP Trunk SID",
+          "setupHint": "Crea un trunk SIP nella tua console Twilio e incolla i suoi dati sopra — configuriamo LiveKit automaticamente, non serve altro.",
+          "save": "Salva credenziali Twilio",
+          "saved": "Salvato",
+          "saveError": "Impossibile salvare le credenziali Twilio"
+        },
+        "telnyx": {
+          "title": "Telnyx — usa il tuo account",
+          "description": "Acquista e gestisci numeri di telefono per gli Agenti Vocali con la tua fatturazione Telnyx.",
+          "savedNote": "Credenziali Telnyx salvate.",
+          "apiKeyPlaceholder": "Chiave API",
+          "sipConnectionIdPlaceholder": "ID connessione SIP",
+          "sipUsernamePlaceholder": "Nome utente connessione SIP",
+          "sipPasswordPlaceholder": "Password connessione SIP",
+          "setupHint": "Crea una connessione SIP di tipo Credenziali nel tuo portale Telnyx puntata a LiveKit e incolla i suoi dati sopra — configuriamo LiveKit automaticamente, non serve altro.",
+          "save": "Salva credenziali Telnyx",
+          "saved": "Salvato",
+          "saveError": "Impossibile salvare le credenziali Telnyx"
+        }
       }
     },
     "settings": {

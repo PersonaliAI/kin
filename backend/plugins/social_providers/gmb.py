@@ -63,6 +63,7 @@ class GMBProvider(OAuth2Mixin, SocialProvider):
         media_urls: Optional[list[str]] = None,
         settings: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
+        settings = settings or {}
         location = credentials.get("location_name")
         if not location:
             raise SocialPostError("gmb: no business location configured for this account")
@@ -77,6 +78,12 @@ class GMBProvider(OAuth2Mixin, SocialProvider):
         }
         if media_urls:
             body["media"] = [{"mediaFormat": "PHOTO", "sourceUrl": media_urls[0]}]
+        cta_type = settings.get("cta_type")
+        if cta_type and cta_type != "NONE":
+            action_link: dict[str, Any] = {"actionType": cta_type}
+            if settings.get("cta_url"):
+                action_link["url"] = settings["cta_url"]
+            body["callToAction"] = action_link
         res = await request_with_retry(
             "POST", f"https://mybusiness.googleapis.com/v4/{location}/localPosts", headers=headers, json=body
         )

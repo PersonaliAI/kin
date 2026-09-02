@@ -31,16 +31,23 @@ class DevToProvider(SocialProvider):
         media_urls: Optional[list[str]] = None,
         settings: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
+        settings = settings or {}
         title, _, body = content.partition("\n")
         title = title[:250] or "New post"
         markdown = body or content
         if media_urls:
             markdown = f"![]({media_urls[0]})\n\n{markdown}"
+        article: dict[str, Any] = {"title": title, "body_markdown": markdown, "published": True}
+        tags = settings.get("tags")
+        if tags:
+            article["tags"] = [t.strip() for t in tags if t.strip()][:4]
+        if settings.get("canonical_url"):
+            article["canonical_url"] = settings["canonical_url"]
         res = await request_with_retry(
             "POST",
             "https://dev.to/api/articles",
             headers={"api-key": credentials["api_key"], "Content-Type": "application/json"},
-            json={"article": {"title": title, "body_markdown": markdown, "published": True}},
+            json={"article": article},
         )
         if res.status_code >= 400:
             raise SocialPostError(f"dev.to post failed ({res.status_code}): {res.text}")

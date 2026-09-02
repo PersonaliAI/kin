@@ -17,6 +17,7 @@ class SocialPostCreate(BaseModel):
     publish_date: str # ISO-8601 string
     state: str = "queue" # queue, draft
     image_url: Optional[str] = None
+    media_type: Optional[str] = None  # "image" | "video" — how to render image_url
     parent_post_id: Optional[str] = None
     settings: Optional[dict[str, Any]] = None  # per-platform post options (privacy, visibility, ...)
     repeat_interval: Optional[str] = None  # "daily" | "weekly" | "monthly"
@@ -28,6 +29,7 @@ class SocialPostUpdate(BaseModel):
     publish_date: Optional[str] = None
     state: Optional[str] = None
     image_url: Optional[str] = None
+    media_type: Optional[str] = None  # "image" | "video"
     settings: Optional[dict[str, Any]] = None
 
 
@@ -49,8 +51,29 @@ class SocialWebhookSave(BaseModel):
     active: bool = True
 
 
-class SocialGenerateRequest(BaseModel):
-    prompt: str
-    tone: str = "professional"
-    kind: str = "outlines"  # "outlines" | "post"
-    url: Optional[str] = None
+class SocialSignatureCreate(BaseModel):
+    content: str
+    auto_add: bool = False
+
+
+class SocialSetCreate(BaseModel):
+    name: str
+    content: str
+    image_url: Optional[str] = None
+    media_type: Optional[str] = None
+
+
+class SocialShortlinkCreate(BaseModel):
+    url: str
+
+
+class SocialShortenContentRequest(BaseModel):
+    content: str
+
+
+class SocialAgentThreadCreate(BaseModel):
+    title: Optional[str] = None
+
+
+class SocialAgentMessageCreate(BaseModel):
+    content: str

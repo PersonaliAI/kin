@@ -12,7 +12,6 @@ import {
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogFooter, Field, inputCls } from "@/components/dashboard/dialog";
-import { Select } from "@/components/ui/select";
 import { FloatingPopover } from "@/components/ui/floating-popover";
 import {
   socialApi,
@@ -20,6 +19,11 @@ import {
   type SocialAutoPost,
   type SocialAccount,
   type SocialMediaAsset as MediaAsset,
+  type SocialSignature,
+  type SocialSet,
+  type SocialMention,
+  type SocialAgentThreadSummary,
+  type SocialAgentThread,
 } from "@/lib/backend";
 
 interface Tag {
@@ -29,6 +33,134 @@ interface Tag {
 }
 
 type TabType = "launches" | "agent" | "media" | "analytics" | "integrations" | "feeds" | "plugs";
+
+// Extension-based fallback for media whose type wasn't explicitly returned
+// by the upload API (e.g. a URL pasted straight into the "Media URL" field).
+function guessMediaType(url: string): "image" | "video" {
+  return /\.(mp4|mov|webm|m4v)(\?|#|$)/i.test(url) ? "video" : "image";
+}
+
+// Renders a post's attached media as an actual <video> when it's a video —
+// previously every preview and the Media Library grid used a plain <img>
+// unconditionally, which just showed a broken-image icon for videos.
+function MediaPreview({
+  url,
+  type,
+  className,
+}: {
+  url: string;
+  type?: "image" | "video";
+  className?: string;
+}) {
+  const isVideo = type === "video" || (!type && guessMediaType(url) === "video");
+  if (isVideo) {
+    return (
+      <video
+        src={url}
+        className={className}
+        controls
+        muted
+        playsInline
+        preload="metadata"
+      />
+    );
+  }
+  return <img src={url} alt="preview" className={className} />;
+}
+
+// A native <select> for the composer's per-platform settings accordion —
+// deliberately NOT the shared floating-popover <NativeSelect> component. Inside
+// this tight, already-scrolling modal panel, that popover rendered on top
+// of (covering) whatever settings fields came after it instead of pushing
+// them down, and its portal-computed position could end up misaligned when
+// the accordion itself was mid-scroll. A native select has no such
+// positioning/layering to get wrong — the browser owns its own dropdown —
+// and it never truncates its selected-value text the way the shared
+// component's `truncate` class could in a narrow accordion column.
+function NativeSelect({
+  value,
+  onChange,
+  options,
+  className,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+  className?: string;
+}) {
+  return (
+    <div className="relative">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={`w-full h-9 pl-3 pr-8 bg-background border border-border rounded-md text-xs appearance-none cursor-pointer hover:border-foreground/20 focus:outline-none focus:ring-1 focus:ring-foreground/10 focus:border-foreground/30 ${className || ""}`}
+      >
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+    </div>
+  );
+}
+
+// Small "type a value, press Enter to add, click X to remove" chip list —
+// shared by every platform setting that takes a list of tags (Dev.to,
+// Hashnode, Medium, Tumblr). Modeled on the Instagram collaborators input.
+function ChipInput({
+  values,
+  onChange,
+  placeholder,
+  max,
+}: {
+  values: string[];
+  onChange: (next: string[]) => void;
+  placeholder?: string;
+  max?: number;
+}) {
+  const [draft, setDraft] = useState("");
+  function commit() {
+    const v = draft.trim();
+    if (v && (!max || values.length < max) && !values.includes(v)) {
+      onChange([...values, v]);
+    }
+    setDraft("");
+  }
+  return (
+    <div>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              commit();
+            }
+          }}
+          placeholder={placeholder}
+          className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-xs focus:outline-none"
+        />
+        <Button type="button" size="sm" onClick={commit}>Add</Button>
+      </div>
+      {values.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          {values.map((v, i) => (
+            <span key={i} className="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-500 text-[10px] font-bold flex items-center gap-1">
+              {v}
+              <button type="button" onClick={() => onChange(values.filter((_, idx) => idx !== i))}>
+                <X className="size-3 cursor-pointer" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const LOGOS: Record<string, React.ReactNode> = {
   x: (
@@ -135,6 +267,8 @@ export function SocialView() {
   const [feeds, setFeeds] = useState<SocialAutoPost[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [mediaFiles, setMediaFiles] = useState<MediaAsset[]>([]);
+  const [signatures, setSignatures] = useState<SocialSignature[]>([]);
+  const [sets, setSets] = useState<SocialSet[]>([]);
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
   
   // Modals Visibility
@@ -166,6 +300,71 @@ export function SocialView() {
   // X Custom Settings States
   const [xReplyPrivacy, setXReplyPrivacy] = useState("everyone");
   const [xIsPremiumFormat, setXIsPremiumFormat] = useState(false);
+  const [xCommunityId, setXCommunityId] = useState("");
+
+  // Reddit Custom Settings States
+  const [redditSubreddit, setRedditSubreddit] = useState("");
+  const [redditFlairText, setRedditFlairText] = useState("");
+  const [redditNsfw, setRedditNsfw] = useState(false);
+  const [redditSpoiler, setRedditSpoiler] = useState(false);
+
+  // Mastodon Custom Settings States
+  const [mastodonVisibility, setMastodonVisibility] = useState("public");
+  const [mastodonContentWarning, setMastodonContentWarning] = useState("");
+
+  // Threads Custom Settings States
+  const [threadsReplyControl, setThreadsReplyControl] = useState("everyone");
+
+  // Pinterest Custom Settings States
+  const [pinterestBoardId, setPinterestBoardId] = useState("");
+  const [pinterestLink, setPinterestLink] = useState("");
+  const [pinterestAltText, setPinterestAltText] = useState("");
+
+  // Telegram Custom Settings States
+  const [telegramDisableNotification, setTelegramDisableNotification] = useState(false);
+  const [telegramDisableWebPreview, setTelegramDisableWebPreview] = useState(false);
+
+  // Dev.to Custom Settings States
+  const [devToTags, setDevToTags] = useState<string[]>([]);
+  const [devToCanonicalUrl, setDevToCanonicalUrl] = useState("");
+
+  // Hashnode Custom Settings States
+  const [hashnodeTags, setHashnodeTags] = useState<string[]>([]);
+
+  // Medium Custom Settings States
+  const [mediumPublishStatus, setMediumPublishStatus] = useState("public");
+  const [mediumTags, setMediumTags] = useState<string[]>([]);
+  const [mediumCanonicalUrl, setMediumCanonicalUrl] = useState("");
+
+  // Tumblr Custom Settings States
+  const [tumblrTags, setTumblrTags] = useState<string[]>([]);
+
+  // WordPress Custom Settings States
+  const [wordpressStatus, setWordpressStatus] = useState("publish");
+
+  // Lemmy Custom Settings States
+  const [lemmyCommunity, setLemmyCommunity] = useState("");
+  const [lemmyNsfw, setLemmyNsfw] = useState(false);
+
+  // Whop Custom Settings States
+  const [whopForumId, setWhopForumId] = useState("");
+
+  // Google Business Profile Custom Settings States
+  const [gmbCtaType, setGmbCtaType] = useState("NONE");
+  const [gmbCtaUrl, setGmbCtaUrl] = useState("");
+
+  // Listmonk Custom Settings States
+  const [listmonkListId, setListmonkListId] = useState("");
+
+  // Discord Custom Settings States
+  const [discordUsername, setDiscordUsername] = useState("");
+  const [discordSuppressMentions, setDiscordSuppressMentions] = useState(false);
+
+  // Slack Custom Settings States
+  const [slackUnfurlLinks, setSlackUnfurlLinks] = useState(true);
+
+  // Farcaster Custom Settings States
+  const [farcasterChannelId, setFarcasterChannelId] = useState("");
 
   // LinkedIn Custom Settings States
   const [linkedinCommentPrivacy, setLinkedinCommentPrivacy] = useState("anyone");
@@ -221,6 +420,10 @@ export function SocialView() {
   const [activeComposerTab, setActiveComposerTab] = useState<string>("global");
   const [publishDate, setPublishDate] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  // "image" | "video" — how imageUrl should render. Set alongside imageUrl
+  // whenever it changes (upload response, media library pick, or a pasted
+  // URL where we guess from the extension).
+  const [mediaType, setMediaType] = useState<"image" | "video">("image");
   // Multi-select: which connected ACCOUNTS (not platforms) this post targets.
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [isDraft, setIsDraft] = useState(false);
@@ -232,14 +435,15 @@ export function SocialView() {
   const [feedUrl, setFeedUrl] = useState("");
   const [feedIntegrations, setFeedIntegrations] = useState<string[]>(["x"]);
 
-  // AI Copilot States
-  const [aiPrompt, setAiPrompt] = useState("");
-  const [aiUrl, setAiUrl] = useState("");
-  const [aiTone, setAiTone] = useState("viral");
-  const [aiType, setAiType] = useState("outlines");
-  const [aiGenerating, setAiGenerating] = useState(false);
-  const [aiOutlines, setAiOutlines] = useState<string[]>([]);
-  
+  // Social Copilot chat — a real multi-turn agent (see kin-backend
+  // app/routers/social.py's SOCIAL_AGENT_TOOLS), not a one-shot form.
+  const [agentThreads, setAgentThreads] = useState<SocialAgentThreadSummary[]>([]);
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+  const [activeThread, setActiveThread] = useState<SocialAgentThread | null>(null);
+  const [agentInput, setAgentInput] = useState("");
+  const [agentSending, setAgentSending] = useState(false);
+  const [agentLoadingThread, setAgentLoadingThread] = useState(false);
+
   // Outbound webhook (fired on post.published / post.failed)
   const [webhookUrl, setWebhookUrl] = useState("");
   const [webhookActive, setWebhookActive] = useState(true);
@@ -252,6 +456,14 @@ export function SocialView() {
   // Which slugs already have a real (non-stub) provider implementation —
   // drives the "(coming soon)" label in the connect modal.
   const [realSlugs, setRealSlugs] = useState<string[]>([]);
+  // Which slugs actually implement comment()/reply-posting server-side —
+  // gates the composer's "Add Comment" control so it isn't offered (and
+  // silently dropped at publish time) for platforms that can't do it.
+  const [commentSlugs, setCommentSlugs] = useState<string[]>([]);
+  // Which slugs implement a real @-mention user-search API (see
+  // supports_mention on the backend provider) — most platforms don't expose
+  // one to third-party apps, so this only lights up for a couple.
+  const [mentionSlugs, setMentionSlugs] = useState<string[]>([]);
   // Per-account display info (avatar/handle) captured at connect time, keyed
   // by slug — shown in place of the generic platform logo when available,
   // matching Postiz's per-account profile picture in the channel list.
@@ -280,6 +492,13 @@ export function SocialView() {
       setContentOverrides((prev) => ({ ...prev, [activeComposerTab]: text }));
     }
   }
+  // Selected accounts whose provider actually implements comment()/reply-
+  // posting (see commentSlugs) — the "Add Comment" control only makes sense
+  // when at least one exists, and its caption lists these by name when only
+  // some (not all) of the selection supports it.
+  const selectedCommentCapableAccounts = selectedAccountIds
+    .map((id) => accountsById[id])
+    .filter((a) => a && commentSlugs.includes(a.slug));
   const [manualConnectSlug, setManualConnectSlug] = useState<string | null>(null);
   const [manualForm, setManualForm] = useState<Record<string, string>>({});
   const [manualSubmitting, setManualSubmitting] = useState(false);
@@ -328,7 +547,10 @@ export function SocialView() {
     fetchIntegrations();
     fetchAccounts();
     fetchTags();
+    fetchSignatures();
+    fetchSets();
     fetchWebhook();
+    fetchAgentThreads();
   }, []);
 
   // Keep the tab strip pointed somewhere valid — if the account it was on
@@ -433,12 +655,30 @@ export function SocialView() {
     }
   }
 
+  async function fetchSignatures() {
+    try {
+      setSignatures(await socialApi.signatures.list());
+    } catch (err) {
+      console.error("Failed to fetch signatures", err);
+    }
+  }
+
+  async function fetchSets() {
+    try {
+      setSets(await socialApi.sets.list());
+    } catch (err) {
+      console.error("Failed to fetch sets", err);
+    }
+  }
+
   // Get connected platform slugs from real user_credentials-backed integrations
   async function fetchIntegrations() {
     try {
       const data = await socialApi.integrations.list();
       setConnectedSlugs(data.filter((c) => c.connected).map((c) => c.slug));
       setRealSlugs(data.filter((c) => c.real).map((c) => c.slug));
+      setCommentSlugs(data.filter((c) => c.comment).map((c) => c.slug));
+      setMentionSlugs(data.filter((c) => c.mention).map((c) => c.slug));
       setAccountInfo(
         Object.fromEntries(
           data
@@ -545,12 +785,20 @@ export function SocialView() {
     accountId?: string;
     content?: string;
     imageUrl?: string;
+    mediaType?: "image" | "video";
   }) {
     setEditingPostId(null);
-    setGlobalContent(prefill?.content ?? "");
+    const autoSignature = signatures.find((s) => s.auto_add);
+    const baseContent = prefill?.content ?? "";
+    setGlobalContent(
+      autoSignature && !baseContent.includes(autoSignature.content)
+        ? [baseContent, autoSignature.content].filter(Boolean).join("\n\n")
+        : baseContent,
+    );
     setContentOverrides({});
     setActiveComposerTab("global");
     setImageUrl(prefill?.imageUrl ?? "");
+    setMediaType(prefill?.mediaType ?? (prefill?.imageUrl ? guessMediaType(prefill.imageUrl) : "image"));
     const defaultAccount = prefill?.accountId || accounts[0]?.id;
     setSelectedAccountIds(defaultAccount ? [defaultAccount] : []);
     if (prefill?.publishDate) setPublishDate(prefill.publishDate);
@@ -570,6 +818,7 @@ export function SocialView() {
     setContentOverrides({});
     setActiveComposerTab("global");
     setImageUrl(post.image_url || "");
+    setMediaType(post.media_type || (post.image_url ? guessMediaType(post.image_url) : "image"));
     const accountId = post.social_account_id || accounts.find((a) => a.slug === post.integration_slug)?.id;
     setSelectedAccountIds(accountId ? [accountId] : []);
     setIsDraft(post.state === "draft");
@@ -583,8 +832,9 @@ export function SocialView() {
   // publishes as a reply/comment on the parent once the parent goes live
   // (see kin-backend main.py's /cron/publish-social-posts thread handling).
   // Only the fields a given platform's provider actually reads (see
-  // kin-backend/social_providers/{youtube,tiktok,linkedin,x}.py) — everything
-  // else in the accordion is UI-only until a provider honors it too.
+  // kin-backend/plugins/social_providers/*.py) — everything else in the
+  // accordion (e.g. Instagram collaborators/audio search) is UI-only until
+  // a provider honors it too.
   function buildPlatformSettings(): Record<string, unknown> | null {
     switch (activeSlug) {
       case "youtube":
@@ -599,7 +849,66 @@ export function SocialView() {
       case "linkedin":
         return { visibility: linkedinVisibility, comment_privacy: linkedinCommentPrivacy };
       case "x":
-        return { reply_privacy: xReplyPrivacy, premium_format: xIsPremiumFormat };
+        return {
+          reply_privacy: xReplyPrivacy,
+          premium_format: xIsPremiumFormat,
+          community_id: xCommunityId || undefined,
+        };
+      case "instagram":
+        return { post_type: instaPostType };
+      case "reddit":
+        return {
+          subreddit: redditSubreddit || undefined,
+          flair_text: redditFlairText || undefined,
+          nsfw: redditNsfw,
+          spoiler: redditSpoiler,
+        };
+      case "mastodon":
+        return {
+          visibility: mastodonVisibility,
+          content_warning: mastodonContentWarning || undefined,
+        };
+      case "threads":
+        return { reply_control: threadsReplyControl };
+      case "pinterest":
+        return {
+          board_id: pinterestBoardId || undefined,
+          link: pinterestLink || undefined,
+          alt_text: pinterestAltText || undefined,
+        };
+      case "telegram":
+        return {
+          disable_notification: telegramDisableNotification,
+          disable_web_page_preview: telegramDisableWebPreview,
+        };
+      case "dev_to":
+        return { tags: devToTags, canonical_url: devToCanonicalUrl || undefined };
+      case "hashnode":
+        return { tags: hashnodeTags };
+      case "medium":
+        return {
+          publish_status: mediumPublishStatus,
+          tags: mediumTags,
+          canonical_url: mediumCanonicalUrl || undefined,
+        };
+      case "tumblr":
+        return { tags: tumblrTags };
+      case "wordpress":
+        return { status: wordpressStatus };
+      case "lemmy":
+        return { community: lemmyCommunity || undefined, nsfw: lemmyNsfw };
+      case "whop":
+        return { forum_id: whopForumId || undefined };
+      case "gmb":
+        return { cta_type: gmbCtaType, cta_url: gmbCtaUrl || undefined };
+      case "listmonk":
+        return { list_id: listmonkListId || undefined };
+      case "discord":
+        return { username: discordUsername || undefined, suppress_mentions: discordSuppressMentions };
+      case "slack":
+        return { unfurl_links: slackUnfurlLinks };
+      case "farcaster":
+        return { channel_id: farcasterChannelId || undefined };
       default:
         return null;
     }
@@ -699,8 +1008,7 @@ export function SocialView() {
               <p className="text-sm leading-snug whitespace-pre-wrap mt-0.5">{content}</p>
               {imageUrl && (
                 <div className="rounded-2xl overflow-hidden border border-border/40 mt-2.5">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={imageUrl} alt="preview" className="w-full max-h-64 object-cover" />
+                  <MediaPreview url={imageUrl} type={mediaType} className="w-full max-h-64 object-cover" />
                 </div>
               )}
               <div className="flex items-center justify-between text-muted-foreground pt-3 max-w-[280px] text-[11px]">
@@ -733,8 +1041,7 @@ export function SocialView() {
           <p className="px-4 pb-3 text-[13px] leading-relaxed whitespace-pre-wrap">{content}</p>
           {imageUrl && (
             <div className="border-t border-border/40">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={imageUrl} alt="preview" className="w-full max-h-64 object-cover" />
+              <MediaPreview url={imageUrl} type={mediaType} className="w-full max-h-64 object-cover" />
             </div>
           )}
           <div className="flex items-center justify-around text-[11px] font-semibold text-muted-foreground border-t border-border/40 py-1.5">
@@ -757,8 +1064,7 @@ export function SocialView() {
           </div>
           {imageUrl ? (
             <div className="aspect-square bg-muted">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={imageUrl} alt="preview" className="w-full h-full object-cover" />
+              <MediaPreview url={imageUrl} type={mediaType} className="w-full h-full object-cover" />
             </div>
           ) : (
             <div className="aspect-square bg-muted flex items-center justify-center text-center px-6">
@@ -772,6 +1078,62 @@ export function SocialView() {
               <Share2 className="size-5" />
             </div>
             <p className="text-[13px]"><span className="font-bold">{displayName}</span> {content}</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (activeSlug === "youtube") {
+      // YouTube is video-first: the title is the first line of the composer
+      // content (YouTube's own upload form works the same way), the rest is
+      // the description. Shown as a watch-page-style card, not a feed post.
+      const [titleLine, ...descLines] = content.split("\n");
+      return (
+        <div className="max-w-sm mx-auto space-y-2.5">
+          <div className="rounded-xl overflow-hidden border border-border/40 aspect-video bg-black flex items-center justify-center relative">
+            {imageUrl ? (
+              <MediaPreview url={imageUrl} type={mediaType} className="w-full h-full object-cover" />
+            ) : (
+              <p className="text-[11px] text-neutral-400 px-6 text-center">Add a video below — YouTube posts need one.</p>
+            )}
+          </div>
+          <div className="flex items-start gap-2.5">
+            <div className="size-9 rounded-full bg-red-600 border border-border flex items-center justify-center shrink-0 overflow-hidden">
+              <ChannelIcon slug="youtube" className="size-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h4 className="text-[13px] font-bold leading-snug line-clamp-2">{titleLine || "Untitled video"}</h4>
+              <p className="text-[11px] text-muted-foreground mt-0.5">{displayName} · now</p>
+              {descLines.length > 0 && (
+                <p className="text-[11px] text-muted-foreground whitespace-pre-wrap mt-1 line-clamp-3">{descLines.join("\n")}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (activeSlug === "tiktok") {
+      // TikTok is a vertical, video-only feed — a 16:9 image/video box like
+      // every other preview here would misrepresent it, so this uses a 9:16
+      // frame with the caption/actions overlaid the way the TikTok app does.
+      return (
+        <div className="rounded-2xl overflow-hidden border border-border/40 bg-black relative mx-auto" style={{ aspectRatio: "9/16", maxWidth: "220px" }}>
+          {imageUrl ? (
+            <MediaPreview url={imageUrl} type={mediaType} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center px-6">
+              <p className="text-[11px] text-neutral-400 text-center">TikTok posts need a video — add one below.</p>
+            </div>
+          )}
+          <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/80 to-transparent">
+            <p className="text-[11px] font-bold text-white">{handle}</p>
+            <p className="text-[11px] text-white/90 leading-snug line-clamp-2 mt-0.5">{content}</p>
+          </div>
+          <div className="absolute right-2 bottom-16 flex flex-col items-center gap-3 text-white">
+            <Heart className="size-5" />
+            <MessageSquare className="size-5" />
+            <Share2 className="size-5" />
           </div>
         </div>
       );
@@ -795,8 +1157,7 @@ export function SocialView() {
         <p className="text-xs leading-relaxed whitespace-pre-wrap">{content}</p>
         {imageUrl && (
           <div className="rounded-lg overflow-hidden border border-border/40 aspect-video bg-muted flex items-center justify-center">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={imageUrl} alt="preview" className="object-cover w-full h-full" />
+            <MediaPreview url={imageUrl} type={mediaType} className="object-cover w-full h-full" />
           </div>
         )}
         <div className="flex items-center justify-between text-muted-foreground border-t border-border/40 pt-2 text-[10px]">
@@ -827,6 +1188,7 @@ export function SocialView() {
           publish_date: publishIso,
           state,
           image_url: imageUrl || null,
+          media_type: imageUrl ? mediaType : null,
           settings: buildPlatformSettings(),
         });
       } else {
@@ -838,6 +1200,7 @@ export function SocialView() {
           publish_date: publishIso,
           state,
           image_url: imageUrl || null,
+          media_type: imageUrl ? mediaType : null,
           settings: buildPlatformSettings(),
           repeat_interval: repeat,
           repeat_count: repeat ? 4 : undefined,
@@ -848,10 +1211,16 @@ export function SocialView() {
           // Each channel's comment must reply to THAT channel's own parent
           // post row (the cron job posts it using the parent's release_id),
           // so this can't go through the single multi-account create call —
-          // one request per created post instead.
+          // one request per created post instead. Only channels whose
+          // provider actually implements comment()/reply-posting get one —
+          // see commentSlugs (populated from /api/social/integrations).
           await Promise.all(
             createdArr
-              .filter((p) => p.social_account_id)
+              .filter(
+                (p) =>
+                  p.social_account_id &&
+                  commentSlugs.includes(accountsById[p.social_account_id]?.slug),
+              )
               .map((p) =>
                 socialApi.posts.create({
                   social_account_ids: [p.social_account_id!],
@@ -944,39 +1313,116 @@ export function SocialView() {
     }
   }
 
-  // AI Outlines Generation — calls Kin's own Gemini-backed generator
-  // (kin-backend main.py POST /api/social/generate).
-  async function handleAiCopilotGenerate() {
-    if (!aiPrompt.trim()) return;
-    setAiGenerating(true);
+  // Social Copilot chat — thread list + active thread + send-message.
+  async function fetchAgentThreads() {
     try {
-      const res = await socialApi.generate({
-        prompt: aiPrompt,
-        tone: aiTone,
-        kind: aiType === "posts" ? "post" : "outlines",
-        url: aiUrl || undefined,
-      });
-      setAiOutlines(res.outlines || (res.content ? [res.content] : []));
+      setAgentThreads(await socialApi.agent.listThreads());
     } catch (err) {
-      console.error("AI generation failed", err);
-      setAiOutlines([]);
+      console.error("Failed to fetch agent threads", err);
+    }
+  }
+
+  async function openAgentThread(id: string) {
+    setActiveThreadId(id);
+    setAgentLoadingThread(true);
+    try {
+      setActiveThread(await socialApi.agent.getThread(id));
+    } catch (err) {
+      console.error("Failed to load agent thread", err);
+      setActiveThread(null);
     } finally {
-      setAiGenerating(false);
+      setAgentLoadingThread(false);
+    }
+  }
+
+  async function handleNewAgentThread() {
+    try {
+      const thread = await socialApi.agent.createThread();
+      setAgentThreads((prev) => [{ id: thread.id, title: thread.title, preview: "" }, ...prev]);
+      setActiveThreadId(thread.id);
+      setActiveThread(thread);
+    } catch (err) {
+      console.error("Failed to create agent thread", err);
+    }
+  }
+
+  async function handleDeleteAgentThread(id: string) {
+    try {
+      await socialApi.agent.deleteThread(id);
+      setAgentThreads((prev) => prev.filter((t) => t.id !== id));
+      if (activeThreadId === id) {
+        setActiveThreadId(null);
+        setActiveThread(null);
+      }
+    } catch (err) {
+      console.error("Failed to delete agent thread", err);
+    }
+  }
+
+  async function handleSendAgentMessage(e: React.FormEvent) {
+    e.preventDefault();
+    const content = agentInput.trim();
+    if (!content || agentSending) return;
+
+    let threadId = activeThreadId;
+    // Optimistically show the user's message right away — the request can
+    // take a few seconds since it's running a tool-calling loop server-side.
+    if (threadId) {
+      setActiveThread((prev) =>
+        prev ? { ...prev, display_log: [...prev.display_log, { role: "user", content }] } : prev,
+      );
+    }
+    setAgentInput("");
+    setAgentSending(true);
+    try {
+      if (!threadId) {
+        const thread = await socialApi.agent.createThread();
+        threadId = thread.id;
+        setActiveThreadId(threadId);
+        setActiveThread({ ...thread, display_log: [{ role: "user", content }] });
+        setAgentThreads((prev) => [{ id: thread.id, title: thread.title, preview: "" }, ...prev]);
+      }
+      const updated = await socialApi.agent.sendMessage(threadId, content);
+      setActiveThread(updated);
+      setAgentThreads((prev) => {
+        const preview = updated.display_log[updated.display_log.length - 1]?.content.slice(0, 120) || "";
+        const rest = prev.filter((t) => t.id !== updated.id);
+        return [{ id: updated.id, title: updated.title, preview }, ...rest];
+      });
+    } catch (err) {
+      console.error("Failed to send agent message", err);
+      setActiveThread((prev) =>
+        prev
+          ? {
+              ...prev,
+              display_log: [
+                ...prev.display_log,
+                { role: "assistant", content: "Something went wrong — try again." },
+              ],
+            }
+          : prev,
+      );
+    } finally {
+      setAgentSending(false);
     }
   }
 
   // Handle local file uploads
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file after an error
     if (!file) return;
 
     setUploading(true);
+    setUploadError(null);
     try {
       await socialApi.media.upload(file);
       fetchMedia();
     } catch (err) {
       console.error("Media upload failed", err);
+      setUploadError(err instanceof Error ? err.message : "Upload failed");
     } finally {
       setUploading(false);
     }
@@ -994,6 +1440,178 @@ export function SocialView() {
   const tagBtnRef = useRef<HTMLButtonElement>(null);
   const repeatBtnRef = useRef<HTMLButtonElement>(null);
   const channelMenuBtnRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+
+  // Signatures / Sets / Link-shortening popovers
+  const signatureBtnRef = useRef<HTMLButtonElement>(null);
+  const [showSignaturePicker, setShowSignaturePicker] = useState(false);
+  const [newSignatureContent, setNewSignatureContent] = useState("");
+  const [newSignatureAutoAdd, setNewSignatureAutoAdd] = useState(false);
+  const setsBtnRef = useRef<HTMLButtonElement>(null);
+  const [showSetsPicker, setShowSetsPicker] = useState(false);
+  const [newSetName, setNewSetName] = useState("");
+  const [shorteningLinks, setShorteningLinks] = useState(false);
+
+  // @-mention autocomplete — only offered when the active channel's
+  // platform supports a real user-search lookup (see mentionSlugs).
+  const [showMentionPicker, setShowMentionPicker] = useState(false);
+  const [mentionResults, setMentionResults] = useState<SocialMention[]>([]);
+  const [mentionQueryStart, setMentionQueryStart] = useState<number | null>(null);
+  const mentionSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Best-time-to-post suggestions
+  const [showBestTimePicker, setShowBestTimePicker] = useState(false);
+  const [bestTimeSlots, setBestTimeSlots] = useState<string[]>([]);
+  const [bestTimeLoading, setBestTimeLoading] = useState(false);
+  const bestTimeBtnRef = useRef<HTMLButtonElement>(null);
+
+  function handleComposerContentChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    const text = e.target.value;
+    const cursor = e.target.selectionStart;
+    setComposerContent(text);
+
+    if (mentionSearchTimeout.current) clearTimeout(mentionSearchTimeout.current);
+    if (!mentionSlugs.includes(activeSlug) || !activeAccountId) {
+      setShowMentionPicker(false);
+      return;
+    }
+    const beforeCursor = text.slice(0, cursor);
+    const match = beforeCursor.match(/(?:^|\s)@([\w.]{1,30})$/);
+    if (!match) {
+      setShowMentionPicker(false);
+      return;
+    }
+    const query = match[1];
+    const queryStart = cursor - query.length - 1; // include the "@"
+    setMentionQueryStart(queryStart);
+    mentionSearchTimeout.current = setTimeout(async () => {
+      try {
+        const results = await socialApi.mentions.search(activeAccountId, query);
+        setMentionResults(results);
+        setShowMentionPicker(results.length > 0);
+      } catch (err) {
+        console.error("Mention search failed", err);
+        setShowMentionPicker(false);
+      }
+    }, 300);
+  }
+
+  function handleInsertMention(mention: SocialMention) {
+    if (mentionQueryStart === null) return;
+    const el = contentTextareaRef.current;
+    const cursor = el?.selectionStart ?? composerContent.length;
+    const before = composerContent.slice(0, mentionQueryStart);
+    const after = composerContent.slice(cursor);
+    const inserted = `@${mention.username} `;
+    setComposerContent(before + inserted + after);
+    setShowMentionPicker(false);
+    requestAnimationFrame(() => {
+      el?.focus();
+      const pos = before.length + inserted.length;
+      el?.setSelectionRange(pos, pos);
+    });
+  }
+
+  async function handleSuggestBestTimes() {
+    if (!activeAccountId) return;
+    setBestTimeLoading(true);
+    setShowBestTimePicker(true);
+    try {
+      const { slots } = await socialApi.bestTime.suggest(activeAccountId, 3);
+      setBestTimeSlots(slots);
+    } catch (err) {
+      console.error("Failed to suggest best times", err);
+      setBestTimeSlots([]);
+    } finally {
+      setBestTimeLoading(false);
+    }
+  }
+
+  function handlePickBestTime(iso: string) {
+    // <input type="datetime-local"> wants local time with no timezone
+    // suffix — same conversion the manual date picker below produces.
+    const d = new Date(iso);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const local = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    setPublishDate(local);
+    setShowBestTimePicker(false);
+  }
+
+  async function handleInsertSignature(signature: SocialSignature) {
+    setComposerContent(composerContent ? `${composerContent}\n\n${signature.content}` : signature.content);
+    setShowSignaturePicker(false);
+  }
+
+  async function handleSaveSignature() {
+    const content = newSignatureContent.trim();
+    if (!content) return;
+    try {
+      await socialApi.signatures.create({ content, auto_add: newSignatureAutoAdd });
+      setNewSignatureContent("");
+      setNewSignatureAutoAdd(false);
+      fetchSignatures();
+    } catch (err) {
+      console.error("Failed to save signature", err);
+    }
+  }
+
+  async function handleDeleteSignature(id: string) {
+    try {
+      await socialApi.signatures.delete(id);
+      fetchSignatures();
+    } catch (err) {
+      console.error("Failed to delete signature", err);
+    }
+  }
+
+  async function handleLoadSet(set: SocialSet) {
+    setGlobalContent(set.content);
+    setContentOverrides({});
+    setActiveComposerTab("global");
+    if (set.image_url) {
+      setImageUrl(set.image_url);
+      setMediaType(set.media_type || guessMediaType(set.image_url));
+    }
+    setShowSetsPicker(false);
+  }
+
+  async function handleSaveSet() {
+    const name = newSetName.trim();
+    if (!name || !composerContent.trim()) return;
+    try {
+      await socialApi.sets.create({
+        name,
+        content: composerContent,
+        image_url: imageUrl || null,
+        media_type: imageUrl ? mediaType : null,
+      });
+      setNewSetName("");
+      fetchSets();
+    } catch (err) {
+      console.error("Failed to save set", err);
+    }
+  }
+
+  async function handleDeleteSet(id: string) {
+    try {
+      await socialApi.sets.delete(id);
+      fetchSets();
+    } catch (err) {
+      console.error("Failed to delete set", err);
+    }
+  }
+
+  async function handleShortenLinks() {
+    if (!composerContent.trim() || shorteningLinks) return;
+    setShorteningLinks(true);
+    try {
+      const { content } = await socialApi.shortlinks.shortenContent(composerContent);
+      setComposerContent(content);
+    } catch (err) {
+      console.error("Failed to shorten links", err);
+    } finally {
+      setShorteningLinks(false);
+    }
+  }
 
   const BOLD_MAP: Record<string, string> = (() => {
     const map: Record<string, string> = {};
@@ -1050,17 +1668,21 @@ export function SocialView() {
   // sync since the file lands in the same storage bucket.
   const composerFileInputRef = useRef<HTMLInputElement>(null);
   const [composerUploading, setComposerUploading] = useState(false);
+  const [composerUploadError, setComposerUploadError] = useState<string | null>(null);
   async function handleComposerMediaUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = ""; // allow re-selecting the same file later
     if (!file) return;
     setComposerUploading(true);
+    setComposerUploadError(null);
     try {
       const asset = await socialApi.media.upload(file);
       setImageUrl(asset.url);
+      setMediaType(asset.media_type || (asset.type?.startsWith("video/") ? "video" : "image"));
       fetchMedia();
     } catch (err) {
       console.error("Composer media upload failed", err);
+      setComposerUploadError(err instanceof Error ? err.message : "Upload failed");
     } finally {
       setComposerUploading(false);
     }
@@ -1356,13 +1978,20 @@ export function SocialView() {
             </div>
 
             {/* Grid wrapper - Fully Responsive */}
-            <div className="overflow-x-auto">
+            {/* border/rounded/bg live here, on the scrolling element itself,
+                not on a child wrapper — an intervening overflow-hidden
+                between the sticky Time column and this scroller breaks
+                position:sticky entirely (it sticks relative to the nearest
+                clipping ancestor, and this one never scrolls), which is why
+                the Time column used to scroll away with the rest of the grid
+                instead of staying pinned. */}
+            <div className="overflow-x-auto rounded-xl border border-border/60 bg-muted/5">
               {/* Desktop view (only on md and up) */}
-              <div className="hidden md:block min-w-[800px] border border-border/60 rounded-xl overflow-hidden bg-muted/5">
+              <div className="hidden md:block min-w-[800px]">
                 
                 {/* Columns headers */}
                 <div className="grid grid-cols-8 border-b border-border bg-muted/30">
-                  <div className="p-3 text-[10px] font-bold text-muted-foreground uppercase text-center border-r border-border/40">
+                  <div className="sticky left-0 z-10 p-3 text-[10px] font-bold text-muted-foreground uppercase text-center border-r border-border/40 bg-muted/30">
                     Time
                   </div>
                   {weekDates.map((date, idx) => {
@@ -1387,7 +2016,7 @@ export function SocialView() {
                 <div className="max-h-[500px] overflow-y-auto pr-1">
                   {hoursOfDay.map((hour) => (
                     <div key={hour} className="grid grid-cols-8 border-b border-border/40 last:border-0 group">
-                      <div className="p-3 text-[10px] font-semibold text-muted-foreground text-center border-r border-border/40 flex items-center justify-center bg-muted/10">
+                      <div className="sticky left-0 z-10 p-3 text-[10px] font-semibold text-muted-foreground text-center border-r border-border/40 flex items-center justify-center bg-muted/10">
                         {hour === 0 ? "12:00 AM" : hour < 12 ? `${hour}:00 AM` : hour === 12 ? "12:00 PM" : `${hour - 12}:00 PM`}
                       </div>
 
@@ -1647,7 +2276,8 @@ export function SocialView() {
                   <textarea
                     ref={contentTextareaRef}
                     value={composerContent}
-                    onChange={(e) => setComposerContent(e.target.value)}
+                    onChange={handleComposerContentChange}
+                    onBlur={() => setTimeout(() => setShowMentionPicker(false), 150)}
                     placeholder={
                       activeComposerTab === "global"
                         ? t("composer.placeholder")
@@ -1656,6 +2286,31 @@ export function SocialView() {
                     rows={6}
                     className="w-full rounded-xl border border-border bg-background p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
+                  <FloatingPopover
+                    open={showMentionPicker}
+                    anchorRef={contentTextareaRef}
+                    onClose={() => setShowMentionPicker(false)}
+                    className="w-64 py-1"
+                  >
+                    {mentionResults.map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => handleInsertMention(m)}
+                        className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-muted cursor-pointer"
+                      >
+                        {m.avatarUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={m.avatarUrl} alt="" className="size-5 rounded-full" />
+                        ) : (
+                          <div className="size-5 rounded-full bg-muted" />
+                        )}
+                        <span className="text-xs font-semibold">{m.name}</span>
+                        <span className="text-[11px] text-muted-foreground">@{m.username}</span>
+                      </button>
+                    ))}
+                  </FloatingPopover>
                   {activeComposerTab !== "global" && activeComposerTab in contentOverrides && (
                     <button
                       type="button"
@@ -1735,14 +2390,150 @@ export function SocialView() {
                           ))}
                         </FloatingPopover>
                       </div>
+
+                      <div className="relative">
+                        <button
+                          ref={signatureBtnRef}
+                          type="button"
+                          title="Insert a saved signature"
+                          onClick={() => setShowSignaturePicker((s) => !s)}
+                          className="hover:text-foreground cursor-pointer"
+                        >
+                          <FileText className="size-4" />
+                        </button>
+                        <FloatingPopover
+                          open={showSignaturePicker}
+                          anchorRef={signatureBtnRef}
+                          onClose={() => setShowSignaturePicker(false)}
+                          className="w-72 p-3 space-y-2"
+                        >
+                          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Signatures</p>
+                          {signatures.length === 0 && (
+                            <p className="text-[11px] text-muted-foreground">No saved signatures yet.</p>
+                          )}
+                          {signatures.map((sig) => (
+                            <div key={sig.id} className="flex items-start gap-2 group">
+                              <button
+                                type="button"
+                                onClick={() => handleInsertSignature(sig)}
+                                className="flex-1 text-left text-[11px] rounded-lg border border-border px-2 py-1.5 hover:bg-muted cursor-pointer line-clamp-2"
+                              >
+                                {sig.content}
+                                {sig.auto_add && <span className="ml-1 text-indigo-500 font-bold">(auto)</span>}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteSignature(sig.id)}
+                                className="opacity-0 group-hover:opacity-100 text-red-500 cursor-pointer p-1"
+                              >
+                                <Trash2 className="size-3" />
+                              </button>
+                            </div>
+                          ))}
+                          <div className="border-t border-border/50 pt-2 space-y-1.5">
+                            <textarea
+                              value={newSignatureContent}
+                              onChange={(e) => setNewSignatureContent(e.target.value)}
+                              placeholder="New signature text..."
+                              rows={2}
+                              className="w-full rounded-lg border border-border bg-background p-2 text-[11px] focus:outline-none"
+                            />
+                            <div className="flex items-center justify-between">
+                              <label className="flex items-center gap-1.5 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={newSignatureAutoAdd}
+                                  onChange={(e) => setNewSignatureAutoAdd(e.target.checked)}
+                                  className="rounded border-border"
+                                />
+                                <span className="text-[10px] text-muted-foreground">Auto-add to new posts</span>
+                              </label>
+                              <Button type="button" size="sm" onClick={handleSaveSignature}>Save</Button>
+                            </div>
+                          </div>
+                        </FloatingPopover>
+                      </div>
+
+                      <div className="relative">
+                        <button
+                          ref={setsBtnRef}
+                          type="button"
+                          title="Save or load a post template"
+                          onClick={() => setShowSetsPicker((s) => !s)}
+                          className="hover:text-foreground cursor-pointer"
+                        >
+                          <Layers className="size-4" />
+                        </button>
+                        <FloatingPopover
+                          open={showSetsPicker}
+                          anchorRef={setsBtnRef}
+                          onClose={() => setShowSetsPicker(false)}
+                          className="w-72 p-3 space-y-2"
+                        >
+                          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Sets</p>
+                          {sets.length === 0 && (
+                            <p className="text-[11px] text-muted-foreground">No saved sets yet.</p>
+                          )}
+                          {sets.map((set) => (
+                            <div key={set.id} className="flex items-start gap-2 group">
+                              <button
+                                type="button"
+                                onClick={() => handleLoadSet(set)}
+                                className="flex-1 text-left text-[11px] rounded-lg border border-border px-2 py-1.5 hover:bg-muted cursor-pointer"
+                              >
+                                <span className="font-bold block">{set.name}</span>
+                                <span className="text-muted-foreground line-clamp-1">{set.content}</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteSet(set.id)}
+                                className="opacity-0 group-hover:opacity-100 text-red-500 cursor-pointer p-1"
+                              >
+                                <Trash2 className="size-3" />
+                              </button>
+                            </div>
+                          ))}
+                          <div className="border-t border-border/50 pt-2 flex gap-1.5">
+                            <input
+                              type="text"
+                              value={newSetName}
+                              onChange={(e) => setNewSetName(e.target.value)}
+                              placeholder="Save current content as..."
+                              className="flex-1 rounded-lg border border-border bg-background px-2 py-1.5 text-[11px] focus:outline-none"
+                            />
+                            <Button type="button" size="sm" onClick={handleSaveSet}>Save</Button>
+                          </div>
+                        </FloatingPopover>
+                      </div>
+
+                      <button
+                        type="button"
+                        title="Shorten links in this post"
+                        disabled={shorteningLinks}
+                        onClick={handleShortenLinks}
+                        className="hover:text-foreground cursor-pointer disabled:opacity-50"
+                      >
+                        <Link className="size-4" />
+                      </button>
                     </div>
                     <span className={`text-[10px] font-semibold ${composerContent.length > charLimit ? 'text-red-500 font-bold' : 'text-muted-foreground'}`}>
                       {composerContent.length}/{charLimit}
                     </span>
                   </div>
+                  {composerUploadError && (
+                    <p className="text-[11px] font-semibold text-red-500 mt-1.5">{composerUploadError}</p>
+                  )}
+                  {(activeSlug === "youtube" || activeSlug === "tiktok") && imageUrl && mediaType !== "video" && (
+                    <p className="text-[11px] font-semibold text-amber-500 mt-1.5">
+                      {channels.find((c) => c.slug === activeSlug)?.name} posts are usually a video — this attachment is an image.
+                    </p>
+                  )}
                 </div>
 
-                {/* Comment box */}
+                {/* Comment box — only offered when at least one selected
+                    account's platform actually supports posting a reply;
+                    see selectedCommentCapableAccounts above. */}
+                {selectedCommentCapableAccounts.length > 0 && (
                 <div className="border-t border-border/50 pt-3">
                   <label className="flex items-center gap-2 cursor-pointer mb-2">
                     <input
@@ -1755,6 +2546,11 @@ export function SocialView() {
                       {t("composer.addComment")}
                     </span>
                   </label>
+                  {addComment && selectedCommentCapableAccounts.length < selectedAccountIds.length && (
+                    <p className="text-[11px] text-muted-foreground mb-2">
+                      Only posted on channels that support replies: {selectedCommentCapableAccounts.map((a) => a.displayName || a.handle || a.name).join(", ")}.
+                    </p>
+                  )}
                   {addComment && (
                     <textarea
                       value={commentContent}
@@ -1765,6 +2561,7 @@ export function SocialView() {
                     />
                   )}
                 </div>
+                )}
 
                 {/* Collapsible Accordion Settings Panel */}
                 <div className="space-y-3">
@@ -1794,7 +2591,7 @@ export function SocialView() {
                             <label className="text-[10px] font-bold text-muted-foreground block mb-1 uppercase tracking-wider">
                               Post Type
                             </label>
-                            <Select
+                            <NativeSelect
                               value={instaPostType}
                               onChange={setInstaPostType}
                               options={[
@@ -1857,7 +2654,7 @@ export function SocialView() {
                               Audio (Reels only - single video)
                             </label>
                             <div className="flex gap-2">
-                              <Select
+                              <NativeSelect
                                 value="music"
                                 onChange={() => {}}
                                 options={[{ value: "music", label: "Music" }]}
@@ -1904,7 +2701,7 @@ export function SocialView() {
                             <label className="text-[10px] font-bold text-muted-foreground block mb-1 uppercase tracking-wider">
                               Who can reply
                             </label>
-                            <Select
+                            <NativeSelect
                               value={xReplyPrivacy}
                               onChange={setXReplyPrivacy}
                               options={[
@@ -1916,8 +2713,8 @@ export function SocialView() {
                           </div>
 
                           <label className="flex items-center gap-2 cursor-pointer">
-                            <input 
-                              type="checkbox" 
+                            <input
+                              type="checkbox"
                               checked={xIsPremiumFormat}
                               onChange={(e) => setXIsPremiumFormat(e.target.checked)}
                               className="rounded border-border focus:ring-indigo-500"
@@ -1926,6 +2723,19 @@ export function SocialView() {
                               Enable premium long post format (up to 25k chars)
                             </span>
                           </label>
+
+                          <div>
+                            <label className="text-[10px] font-bold text-muted-foreground block mb-1 uppercase tracking-wider">
+                              Post to Community (optional)
+                            </label>
+                            <input
+                              type="text"
+                              value={xCommunityId}
+                              onChange={(e) => setXCommunityId(e.target.value)}
+                              placeholder="Community ID"
+                              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs focus:outline-none"
+                            />
+                          </div>
                         </div>
                       )}
 
@@ -1936,7 +2746,7 @@ export function SocialView() {
                             <label className="text-[10px] font-bold text-muted-foreground block mb-1 uppercase tracking-wider">
                               Who can comment
                             </label>
-                            <Select
+                            <NativeSelect
                               value={linkedinCommentPrivacy}
                               onChange={setLinkedinCommentPrivacy}
                               options={[
@@ -1951,7 +2761,7 @@ export function SocialView() {
                             <label className="text-[10px] font-bold text-muted-foreground block mb-1 uppercase tracking-wider">
                               Visibility
                             </label>
-                            <Select
+                            <NativeSelect
                               value={linkedinVisibility}
                               onChange={setLinkedinVisibility}
                               options={[
@@ -1970,7 +2780,7 @@ export function SocialView() {
                             <label className="text-[10px] font-bold text-muted-foreground block mb-1 uppercase tracking-wider">
                               Video Privacy
                             </label>
-                            <Select
+                            <NativeSelect
                               value={ytPrivacy}
                               onChange={setYtPrivacy}
                               options={[
@@ -2002,7 +2812,7 @@ export function SocialView() {
                             <label className="text-[10px] font-bold text-muted-foreground block mb-1 uppercase tracking-wider">
                               Video Privacy
                             </label>
-                            <Select
+                            <NativeSelect
                               value={tiktokPrivacy}
                               onChange={setTiktokPrivacy}
                               options={[
@@ -2045,15 +2855,434 @@ export function SocialView() {
                         </div>
                       )}
 
+                      {/* Reddit */}
+                      {activeSlug === "reddit" && (
+                        <div className="space-y-4">
+                          <div>
+                            <label className="text-[10px] font-bold text-muted-foreground block mb-1 uppercase tracking-wider">
+                              Target subreddit (optional — defaults to your own profile)
+                            </label>
+                            <input
+                              type="text"
+                              value={redditSubreddit}
+                              onChange={(e) => setRedditSubreddit(e.target.value)}
+                              placeholder="subreddit name, no r/"
+                              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs focus:outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-muted-foreground block mb-1 uppercase tracking-wider">
+                              Flair text (optional)
+                            </label>
+                            <input
+                              type="text"
+                              value={redditFlairText}
+                              onChange={(e) => setRedditFlairText(e.target.value)}
+                              placeholder="e.g. Discussion"
+                              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs focus:outline-none"
+                            />
+                          </div>
+                          <div className="flex flex-col gap-2 pt-1">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={redditNsfw}
+                                onChange={(e) => setRedditNsfw(e.target.checked)}
+                                className="rounded border-border focus:ring-indigo-500"
+                              />
+                              <span className="text-xs font-semibold text-muted-foreground">Mark as NSFW</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={redditSpoiler}
+                                onChange={(e) => setRedditSpoiler(e.target.checked)}
+                                className="rounded border-border focus:ring-indigo-500"
+                              />
+                              <span className="text-xs font-semibold text-muted-foreground">Mark as spoiler</span>
+                            </label>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Mastodon */}
+                      {activeSlug === "mastodon" && (
+                        <div className="space-y-4">
+                          <div>
+                            <label className="text-[10px] font-bold text-muted-foreground block mb-1 uppercase tracking-wider">
+                              Visibility
+                            </label>
+                            <NativeSelect
+                              value={mastodonVisibility}
+                              onChange={setMastodonVisibility}
+                              options={[
+                                { value: "public", label: "Public" },
+                                { value: "unlisted", label: "Unlisted" },
+                                { value: "private", label: "Followers only" },
+                                { value: "direct", label: "Direct message" },
+                              ]}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-muted-foreground block mb-1 uppercase tracking-wider">
+                              Content warning (optional)
+                            </label>
+                            <input
+                              type="text"
+                              value={mastodonContentWarning}
+                              onChange={(e) => setMastodonContentWarning(e.target.value)}
+                              placeholder="Shown before the post is expanded"
+                              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs focus:outline-none"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Threads */}
+                      {activeSlug === "threads" && (
+                        <div className="space-y-4">
+                          <div>
+                            <label className="text-[10px] font-bold text-muted-foreground block mb-1 uppercase tracking-wider">
+                              Who can reply
+                            </label>
+                            <NativeSelect
+                              value={threadsReplyControl}
+                              onChange={setThreadsReplyControl}
+                              options={[
+                                { value: "everyone", label: "Everyone" },
+                                { value: "accounts_you_follow", label: "Accounts you follow" },
+                                { value: "mentioned_only", label: "Only accounts you mention" },
+                              ]}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Pinterest */}
+                      {activeSlug === "pinterest" && (
+                        <div className="space-y-4">
+                          <div>
+                            <label className="text-[10px] font-bold text-muted-foreground block mb-1 uppercase tracking-wider">
+                              Board ID (optional — defaults to your first board)
+                            </label>
+                            <input
+                              type="text"
+                              value={pinterestBoardId}
+                              onChange={(e) => setPinterestBoardId(e.target.value)}
+                              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs focus:outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-muted-foreground block mb-1 uppercase tracking-wider">
+                              Destination link (optional)
+                            </label>
+                            <input
+                              type="url"
+                              value={pinterestLink}
+                              onChange={(e) => setPinterestLink(e.target.value)}
+                              placeholder="https://..."
+                              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs focus:outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-muted-foreground block mb-1 uppercase tracking-wider">
+                              Alt text (optional)
+                            </label>
+                            <input
+                              type="text"
+                              value={pinterestAltText}
+                              onChange={(e) => setPinterestAltText(e.target.value)}
+                              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs focus:outline-none"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Telegram */}
+                      {activeSlug === "telegram" && (
+                        <div className="space-y-2">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={telegramDisableNotification}
+                              onChange={(e) => setTelegramDisableNotification(e.target.checked)}
+                              className="rounded border-border focus:ring-indigo-500"
+                            />
+                            <span className="text-xs font-semibold text-muted-foreground">Send silently (no notification)</span>
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={telegramDisableWebPreview}
+                              onChange={(e) => setTelegramDisableWebPreview(e.target.checked)}
+                              className="rounded border-border focus:ring-indigo-500"
+                            />
+                            <span className="text-xs font-semibold text-muted-foreground">Disable link preview</span>
+                          </label>
+                        </div>
+                      )}
+
+                      {/* Dev.to */}
+                      {activeSlug === "dev_to" && (
+                        <div className="space-y-4">
+                          <div>
+                            <label className="text-[10px] font-bold text-muted-foreground block mb-1 uppercase tracking-wider">
+                              Tags (up to 4)
+                            </label>
+                            <ChipInput values={devToTags} onChange={setDevToTags} placeholder="Add a tag..." max={4} />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-muted-foreground block mb-1 uppercase tracking-wider">
+                              Canonical URL (optional)
+                            </label>
+                            <input
+                              type="url"
+                              value={devToCanonicalUrl}
+                              onChange={(e) => setDevToCanonicalUrl(e.target.value)}
+                              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs focus:outline-none"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Hashnode */}
+                      {activeSlug === "hashnode" && (
+                        <div>
+                          <label className="text-[10px] font-bold text-muted-foreground block mb-1 uppercase tracking-wider">
+                            Tags
+                          </label>
+                          <ChipInput values={hashnodeTags} onChange={setHashnodeTags} placeholder="Add a tag..." />
+                        </div>
+                      )}
+
+                      {/* Medium */}
+                      {activeSlug === "medium" && (
+                        <div className="space-y-4">
+                          <div>
+                            <label className="text-[10px] font-bold text-muted-foreground block mb-1 uppercase tracking-wider">
+                              Publish status
+                            </label>
+                            <NativeSelect
+                              value={mediumPublishStatus}
+                              onChange={setMediumPublishStatus}
+                              options={[
+                                { value: "public", label: "Public" },
+                                { value: "unlisted", label: "Unlisted" },
+                                { value: "draft", label: "Draft" },
+                              ]}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-muted-foreground block mb-1 uppercase tracking-wider">
+                              Tags (up to 5)
+                            </label>
+                            <ChipInput values={mediumTags} onChange={setMediumTags} placeholder="Add a tag..." max={5} />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-muted-foreground block mb-1 uppercase tracking-wider">
+                              Canonical URL (optional)
+                            </label>
+                            <input
+                              type="url"
+                              value={mediumCanonicalUrl}
+                              onChange={(e) => setMediumCanonicalUrl(e.target.value)}
+                              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs focus:outline-none"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Tumblr */}
+                      {activeSlug === "tumblr" && (
+                        <div>
+                          <label className="text-[10px] font-bold text-muted-foreground block mb-1 uppercase tracking-wider">
+                            Tags
+                          </label>
+                          <ChipInput values={tumblrTags} onChange={setTumblrTags} placeholder="Add a tag..." />
+                        </div>
+                      )}
+
+                      {/* WordPress */}
+                      {activeSlug === "wordpress" && (
+                        <div>
+                          <label className="text-[10px] font-bold text-muted-foreground block mb-1 uppercase tracking-wider">
+                            Status
+                          </label>
+                          <NativeSelect
+                            value={wordpressStatus}
+                            onChange={setWordpressStatus}
+                            options={[
+                              { value: "publish", label: "Publish" },
+                              { value: "draft", label: "Draft" },
+                              { value: "pending", label: "Pending review" },
+                            ]}
+                          />
+                        </div>
+                      )}
+
+                      {/* Lemmy */}
+                      {activeSlug === "lemmy" && (
+                        <div className="space-y-4">
+                          <div>
+                            <label className="text-[10px] font-bold text-muted-foreground block mb-1 uppercase tracking-wider">
+                              Target community (optional — defaults to the account&apos;s community)
+                            </label>
+                            <input
+                              type="text"
+                              value={lemmyCommunity}
+                              onChange={(e) => setLemmyCommunity(e.target.value)}
+                              placeholder="community name"
+                              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs focus:outline-none"
+                            />
+                          </div>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={lemmyNsfw}
+                              onChange={(e) => setLemmyNsfw(e.target.checked)}
+                              className="rounded border-border focus:ring-indigo-500"
+                            />
+                            <span className="text-xs font-semibold text-muted-foreground">Mark as NSFW</span>
+                          </label>
+                        </div>
+                      )}
+
+                      {/* Whop */}
+                      {activeSlug === "whop" && (
+                        <div>
+                          <label className="text-[10px] font-bold text-muted-foreground block mb-1 uppercase tracking-wider">
+                            Forum ID (optional — defaults to the account&apos;s forum)
+                          </label>
+                          <input
+                            type="text"
+                            value={whopForumId}
+                            onChange={(e) => setWhopForumId(e.target.value)}
+                            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs focus:outline-none"
+                          />
+                        </div>
+                      )}
+
+                      {/* Google Business Profile */}
+                      {activeSlug === "gmb" && (
+                        <div className="space-y-4">
+                          <div>
+                            <label className="text-[10px] font-bold text-muted-foreground block mb-1 uppercase tracking-wider">
+                              Call-to-action button
+                            </label>
+                            <NativeSelect
+                              value={gmbCtaType}
+                              onChange={setGmbCtaType}
+                              options={[
+                                { value: "NONE", label: "None" },
+                                { value: "LEARN_MORE", label: "Learn more" },
+                                { value: "CALL", label: "Call now" },
+                                { value: "BOOK", label: "Book" },
+                                { value: "ORDER", label: "Order online" },
+                                { value: "SHOP", label: "Shop" },
+                                { value: "SIGN_UP", label: "Sign up" },
+                              ]}
+                            />
+                          </div>
+                          {gmbCtaType !== "NONE" && (
+                            <div>
+                              <label className="text-[10px] font-bold text-muted-foreground block mb-1 uppercase tracking-wider">
+                                Button URL
+                              </label>
+                              <input
+                                type="url"
+                                value={gmbCtaUrl}
+                                onChange={(e) => setGmbCtaUrl(e.target.value)}
+                                placeholder="https://..."
+                                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs focus:outline-none"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Listmonk */}
+                      {activeSlug === "listmonk" && (
+                        <div>
+                          <label className="text-[10px] font-bold text-muted-foreground block mb-1 uppercase tracking-wider">
+                            List ID (optional — defaults to the account&apos;s list)
+                          </label>
+                          <input
+                            type="text"
+                            value={listmonkListId}
+                            onChange={(e) => setListmonkListId(e.target.value)}
+                            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs focus:outline-none"
+                          />
+                        </div>
+                      )}
+
+                      {/* Discord */}
+                      {activeSlug === "discord" && (
+                        <div className="space-y-4">
+                          <div>
+                            <label className="text-[10px] font-bold text-muted-foreground block mb-1 uppercase tracking-wider">
+                              Display name override (optional)
+                            </label>
+                            <input
+                              type="text"
+                              value={discordUsername}
+                              onChange={(e) => setDiscordUsername(e.target.value)}
+                              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs focus:outline-none"
+                            />
+                          </div>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={discordSuppressMentions}
+                              onChange={(e) => setDiscordSuppressMentions(e.target.checked)}
+                              className="rounded border-border focus:ring-indigo-500"
+                            />
+                            <span className="text-xs font-semibold text-muted-foreground">Suppress @mentions in this message</span>
+                          </label>
+                        </div>
+                      )}
+
+                      {/* Slack */}
+                      {activeSlug === "slack" && (
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={slackUnfurlLinks}
+                            onChange={(e) => setSlackUnfurlLinks(e.target.checked)}
+                            className="rounded border-border focus:ring-indigo-500"
+                          />
+                          <span className="text-xs font-semibold text-muted-foreground">Show link previews</span>
+                        </label>
+                      )}
+
+                      {/* Farcaster */}
+                      {activeSlug === "farcaster" && (
+                        <div>
+                          <label className="text-[10px] font-bold text-muted-foreground block mb-1 uppercase tracking-wider">
+                            Channel (optional)
+                          </label>
+                          <input
+                            type="text"
+                            value={farcasterChannelId}
+                            onChange={(e) => setFarcasterChannelId(e.target.value)}
+                            placeholder="e.g. dev"
+                            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs focus:outline-none"
+                          />
+                        </div>
+                      )}
+
                       {/* Fallback default settings */}
-                      {!["instagram", "x", "linkedin", "youtube", "tiktok"].includes(activeSlug) && (
+                      {![
+                        "instagram", "x", "linkedin", "youtube", "tiktok", "reddit", "mastodon",
+                        "threads", "pinterest", "telegram", "dev_to", "hashnode", "medium", "tumblr",
+                        "wordpress", "lemmy", "whop", "gmb", "listmonk", "discord", "slack", "farcaster",
+                      ].includes(activeSlug) && (
                         <div className="space-y-3">
                           <p className="text-[10px] text-muted-foreground">No custom settings required for {activeSlug}. Standard publish limits apply.</p>
                           <div>
                             <label className="text-[10px] font-bold text-muted-foreground block mb-1 uppercase tracking-wider">
                               Audience targeting
                             </label>
-                            <Select
+                            <NativeSelect
                               value="public"
                               onChange={() => {}}
                               options={[{ value: "public", label: "Public / All followers" }]}
@@ -2074,8 +3303,11 @@ export function SocialView() {
                     <input
                       type="text"
                       value={imageUrl}
-                      onChange={(e) => setImageUrl(e.target.value)}
-                      placeholder="https://example.com/image.jpg"
+                      onChange={(e) => {
+                        setImageUrl(e.target.value);
+                        setMediaType(guessMediaType(e.target.value));
+                      }}
+                      placeholder="https://example.com/image.jpg or video.mp4"
                       className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
@@ -2094,6 +3326,39 @@ export function SocialView() {
                       <span className="truncate">{publishDate ? new Date(publishDate).toLocaleString() : "Select Date & Time"}</span>
                       <CalendarIcon className="size-4 text-indigo-500" />
                     </button>
+
+                    <button
+                      ref={bestTimeBtnRef}
+                      type="button"
+                      onClick={handleSuggestBestTimes}
+                      disabled={!activeAccountId}
+                      className="mt-1 flex items-center gap-1 text-[10px] font-bold text-indigo-500 hover:underline cursor-pointer disabled:opacity-50"
+                    >
+                      <Clock className="size-3" /> Suggest best time
+                    </button>
+                    <FloatingPopover
+                      open={showBestTimePicker}
+                      anchorRef={bestTimeBtnRef}
+                      onClose={() => setShowBestTimePicker(false)}
+                      className="w-56 p-2 space-y-1"
+                    >
+                      {bestTimeLoading && (
+                        <p className="text-[11px] text-muted-foreground px-2 py-1">Finding open slots...</p>
+                      )}
+                      {!bestTimeLoading && bestTimeSlots.length === 0 && (
+                        <p className="text-[11px] text-muted-foreground px-2 py-1">No open slots found.</p>
+                      )}
+                      {!bestTimeLoading && bestTimeSlots.map((iso) => (
+                        <button
+                          key={iso}
+                          type="button"
+                          onClick={() => handlePickBestTime(iso)}
+                          className="w-full text-left text-xs rounded-lg px-2 py-1.5 hover:bg-muted cursor-pointer"
+                        >
+                          {new Date(iso).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                        </button>
+                      ))}
+                    </FloatingPopover>
 
                     {/* Rendered via a portal (FloatingPopover) so it isn't
                         clipped by the composer pane's own overflow-y-auto —
@@ -2161,7 +3426,7 @@ export function SocialView() {
 
                         {/* Time Selectors */}
                         <div className="border-t border-border/50 pt-2 grid grid-cols-3 gap-1">
-                          <Select
+                          <NativeSelect
                             value={pickerHour}
                             onChange={setPickerHour}
                             options={Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0")).map((h) => ({
@@ -2170,7 +3435,7 @@ export function SocialView() {
                             }))}
                             className="text-[10px]"
                           />
-                          <Select
+                          <NativeSelect
                             value={pickerMinute}
                             onChange={setPickerMinute}
                             options={Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0")).map((m) => ({
@@ -2179,7 +3444,7 @@ export function SocialView() {
                             }))}
                             className="text-[10px]"
                           />
-                          <Select
+                          <NativeSelect
                             value={pickerAmpm}
                             onChange={setPickerAmpm}
                             options={[
@@ -2454,116 +3719,123 @@ export function SocialView() {
         </form>
       </Dialog>
 
-      {/* ==================== AI COPILOT WORKSPACE ==================== */}
+      {/* ==================== SOCIAL COPILOT CHAT ==================== */}
       {activeTab === "agent" && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-              <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
-                <Sparkles className="size-5 text-indigo-500" />
-                AI Content Generator & Copilot
-              </h2>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="text-xs text-muted-foreground block mb-1 font-medium">
-                    What should the post be about? (Prompt / Instructions)
-                  </label>
-                  <textarea
-                    value={aiPrompt}
-                    onChange={(e) => setAiPrompt(e.target.value)}
-                    placeholder="e.g. A series of hooks introducing the new Supabase vector extensions or outlining a case study on Next.js server actions."
-                    rows={4}
-                    className="w-full rounded-xl border border-border bg-background p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="text-xs text-muted-foreground block mb-1 font-medium">
-                      Reference URL (Optional)
-                    </label>
-                    <input
-                      type="url"
-                      value={aiUrl}
-                      onChange={(e) => setAiUrl(e.target.value)}
-                      placeholder="https://myblog.com/new-release"
-                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground block mb-1 font-medium">
-                      Tone Style
-                    </label>
-                    <Select
-                      value={aiTone}
-                      onChange={setAiTone}
-                      options={[
-                        { value: "viral", label: "Viral Hook" },
-                        { value: "professional", label: "Professional / Educational" },
-                        { value: "casual", label: "Casual / Friendly" },
-                        { value: "corporate", label: "Corporate Announcement" },
-                      ]}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground block mb-1 font-medium">
-                      Generation Goal
-                    </label>
-                    <Select
-                      value={aiType}
-                      onChange={setAiType}
-                      options={[
-                        { value: "outlines", label: "Draft Outlines" },
-                        { value: "posts", label: "Full Post Drafts" },
-                        { value: "hooks", label: "Platform Hooks / Headlines" },
-                      ]}
-                    />
-                  </div>
-                </div>
-
-                <Button 
-                  onClick={handleAiCopilotGenerate} 
-                  disabled={aiGenerating || !aiPrompt.trim()}
-                  className="w-full gap-2"
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 h-[70vh] min-h-[480px]">
+          {/* Thread list */}
+          <div className="lg:col-span-1 rounded-2xl border border-border bg-card flex flex-col overflow-hidden">
+            <div className="p-3 border-b border-border/60">
+              <Button onClick={handleNewAgentThread} className="w-full gap-2" size="sm">
+                <Sparkles className="size-4" /> New chat
+              </Button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2 space-y-1">
+              {agentThreads.length === 0 && (
+                <p className="text-[11px] text-muted-foreground p-3">No conversations yet.</p>
+              )}
+              {agentThreads.map((thread) => (
+                <div
+                  key={thread.id}
+                  className={`group flex items-start gap-1 rounded-lg px-2 py-2 cursor-pointer ${
+                    activeThreadId === thread.id ? "bg-indigo-500/10" : "hover:bg-muted"
+                  }`}
+                  onClick={() => openAgentThread(thread.id)}
                 >
-                  <Sparkles className="size-4" />
-                  {aiGenerating ? "Gemini is analyzing & drafting..." : "Generate AI Copy"}
-                </Button>
-              </div>
-            </div>
-
-            {aiOutlines.length > 0 && (
-              <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-muted-foreground">Generated Recommendations:</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {aiOutlines.map((out, idx) => (
-                    <div key={idx} className="p-4 rounded-xl border border-border bg-card space-y-3 relative group">
-                      <pre className="whitespace-pre-wrap font-sans text-xs leading-relaxed">{out}</pre>
-                      <Button
-                        onClick={() => {
-                          setActiveTab("launches");
-                          openNewComposer({ content: out.split("\n").slice(1).join("\n") });
-                        }}
-                        className="w-full text-xs bg-indigo-600 text-white font-bold"
-                        size="sm"
-                      >
-                        Apply to Composer
-                      </Button>
-                    </div>
-                  ))}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold truncate">{thread.title || "New conversation"}</p>
+                    {thread.preview && (
+                      <p className="text-[10px] text-muted-foreground truncate">{thread.preview}</p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteAgentThread(thread.id);
+                    }}
+                    className="opacity-0 group-hover:opacity-100 text-red-500 cursor-pointer p-0.5 shrink-0"
+                  >
+                    <Trash2 className="size-3" />
+                  </button>
                 </div>
-              </div>
-            )}
-          </div>
-          
-          <div className="space-y-6">
-            <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-3">
-              <h3 className="text-base font-semibold">AI Assistant Settings</h3>
-              <p className="text-xs text-muted-foreground">
-                Kin uses Gemini Pro models to generate outlines and schedule copies grounded in your connected files.
-              </p>
+              ))}
             </div>
+          </div>
+
+          {/* Chat panel */}
+          <div className="lg:col-span-3 rounded-2xl border border-border bg-card flex flex-col overflow-hidden">
+            <div className="flex-1 overflow-y-auto p-5 space-y-3">
+              {!activeThread && !agentLoadingThread && (
+                <div className="h-full flex flex-col items-center justify-center text-center gap-3 py-10">
+                  <Sparkles className="size-8 text-indigo-500" />
+                  <p className="text-sm font-semibold">Ask your Social Copilot for anything</p>
+                  <p className="text-xs text-muted-foreground max-w-sm">
+                    It can look up your connected accounts and recent posts, suggest open posting times,
+                    and actually draft or schedule a post — all from this conversation.
+                  </p>
+                  <div className="flex flex-col gap-1.5 mt-2 w-full max-w-sm">
+                    {[
+                      "What accounts do I have connected?",
+                      "Draft a post announcing our new feature launch and schedule it for the next open slot on X.",
+                      "What have I posted recently?",
+                    ].map((example) => (
+                      <button
+                        key={example}
+                        type="button"
+                        onClick={() => setAgentInput(example)}
+                        className="text-left text-[11px] rounded-lg border border-border px-3 py-2 hover:bg-muted cursor-pointer"
+                      >
+                        {example}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {agentLoadingThread && (
+                <p className="text-xs text-muted-foreground text-center py-10">Loading conversation...</p>
+              )}
+              {activeThread?.display_log.map((entry, idx) => {
+                if (entry.role === "action") {
+                  return (
+                    <div key={idx} className="flex items-center gap-1.5 text-[11px] text-indigo-500 font-semibold px-1">
+                      <Check className="size-3" /> {entry.content}
+                    </div>
+                  );
+                }
+                const isUser = entry.role === "user";
+                return (
+                  <div key={idx} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
+                    <div
+                      className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-sm whitespace-pre-wrap ${
+                        isUser ? "bg-indigo-600 text-white" : "bg-muted"
+                      }`}
+                    >
+                      {entry.content}
+                    </div>
+                  </div>
+                );
+              })}
+              {agentSending && (
+                <div className="flex justify-start">
+                  <div className="max-w-[80%] rounded-2xl px-3.5 py-2 text-sm bg-muted text-muted-foreground italic">
+                    Thinking...
+                  </div>
+                </div>
+              )}
+            </div>
+            <form onSubmit={handleSendAgentMessage} className="border-t border-border/60 p-3 flex gap-2">
+              <input
+                type="text"
+                value={agentInput}
+                onChange={(e) => setAgentInput(e.target.value)}
+                placeholder="Ask your Social Copilot..."
+                disabled={agentSending}
+                className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60"
+              />
+              <Button type="submit" disabled={agentSending || !agentInput.trim()} className="gap-2">
+                <Send className="size-4" />
+              </Button>
+            </form>
           </div>
         </div>
       )}
@@ -2593,8 +3865,11 @@ export function SocialView() {
                 {uploading ? "Uploading asset to storage..." : "Click or drag & drop to upload files"}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                Supports PNG, JPG, GIF, WebP, and MP4 files up to 20MB
+                Images up to 20MB (PNG, JPG, GIF, WebP) or videos up to 500MB (MP4, MOV, WebM)
               </p>
+              {uploadError && (
+                <p className="text-xs font-semibold text-red-500 mt-2">{uploadError}</p>
+              )}
             </div>
           </div>
 
@@ -2602,7 +3877,7 @@ export function SocialView() {
             {mediaFiles.map((file, idx) => (
               <div key={idx} className="rounded-xl border border-border bg-card overflow-hidden group shadow-sm flex flex-col justify-between">
                 <div className="aspect-video bg-muted relative flex items-center justify-center overflow-hidden">
-                  <img src={file.url} alt={file.name} className="object-cover w-full h-full" />
+                  <MediaPreview url={file.url} type={file.media_type} className="object-cover w-full h-full" />
                 </div>
                 <div className="p-3 space-y-2 border-t border-border/50">
                   <p className="text-xs font-semibold truncate">{file.name.substring(7)}</p>
@@ -2622,7 +3897,7 @@ export function SocialView() {
                       className="flex-1 text-[10px] h-7"
                       onClick={() => {
                         setActiveTab("launches");
-                        openNewComposer({ imageUrl: file.url });
+                        openNewComposer({ imageUrl: file.url, mediaType: file.media_type });
                       }}
                     >
                       Use

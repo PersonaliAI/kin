@@ -44,10 +44,13 @@ class SlackProvider(SocialProvider):
         media_urls: Optional[list[str]] = None,
         settings: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
+        settings = settings or {}
         webhook_url = credentials.get("webhook_url")
         if not webhook_url:
             raise SocialPostError("slack: no webhook on file, reconnect required")
         body: dict[str, Any] = {"text": content}
+        if "unfurl_links" in settings:
+            body["unfurl_links"] = bool(settings["unfurl_links"])
         if media_urls:
             body["blocks"] = [
                 {"type": "section", "text": {"type": "mrkdwn", "text": content}},

@@ -54,6 +54,7 @@ class LinkedInProvider(SocialProvider):
     name = "LinkedIn"
     max_concurrent_jobs = 2
     oauth2 = True
+    supports_comment = True
 
     def generate_auth_url(self, state: str) -> str:
         params = {

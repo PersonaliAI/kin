@@ -23,7 +23,7 @@ import secrets
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
+from typing import Any, Awaitable, Callable, Optional
 
 import asyncio
 import httpx
@@ -925,6 +925,7 @@ async def run_assistant(
     source: str,
     session_id: str,
     tool_context: Optional[dict[str, Any]] = None,
+    on_event: Optional[Callable[[dict[str, Any]], Awaitable[None]]] = None,
 ) -> dict[str, str]:
     """Run a single assistant turn with multi-step tool-calling + RAG memory.
 
@@ -934,6 +935,13 @@ async def run_assistant(
     via pgvector and injects them into the system prompt. Loops up to
     MAX_TOOL_ROUNDS times. Persists the final reply + a JSON trace of which
     tools were used.
+
+    `on_event`, if given, is awaited with a small dict right before each tool
+    call actually runs (`{"type": "tool", "name": ..., "args": ...}`) — used
+    by the streaming chat endpoint to surface live "thinking" status text.
+    Fully optional and side-effect-free on the response itself: a caller that
+    doesn't pass it (e.g. the non-streaming /api/chat) gets identical
+    behavior to before this existed.
     """
     user_id = user["id"]
     # Pro/Executive: more retry headroom on the smart model before ever
@@ -1167,6 +1175,7 @@ async def run_assistant(
                     "tool_context": tool_context,
                     "is_ambiguous_mail_query": is_ambiguous_mail_query,
                     "both_mail_connected": both_mail_connected,
+                    "on_event": on_event,
                 }
             else:
                 graph_deps = {
@@ -1193,6 +1202,7 @@ async def run_assistant(
                     "tool_context": tool_context,
                     "is_ambiguous_mail_query": is_ambiguous_mail_query,
                     "both_mail_connected": both_mail_connected,
+                    "on_event": on_event,
                 }
             graph_result = await graph_agent.run(
                 graph_deps,
@@ -1413,6 +1423,8 @@ async def run_assistant(
                 for fc in fcs:
                     args = dict(fc.args) if fc.args else {}
                     logger.info("tool call (litellm path): %s(%s)", fc.name, args)
+                    if on_event:
+                        await on_event({"type": "tool", "name": fc.name, "args": args})
                     result = await agent_tools.execute(
                         fc.name,
                         args,
@@ -1755,6 +1767,8 @@ async def run_assistant(
             for fc in fcs:
                 args = dict(fc.args) if fc.args else {}
                 logger.info("tool call: %s(%s)", fc.name, args)
+                if on_event:
+                    await on_event({"type": "tool", "name": fc.name, "args": args})
                 result = await agent_tools.execute(
                     fc.name,
                     args,
@@ -2086,8 +2100,11 @@ def _require_executive(user: dict[str, Any]) -> None:
         )
 
 
-def _hash_api_key(raw: str) -> str:
-    return hashlib.sha256(raw.encode()).hexdigest()
+# Moved to app/core/security.py (hash_api_key) since it now has two
+# consumers outside main.py (chat.py, social.py) — kept as an alias so the
+# existing `from main import _hash_api_key` call sites in chat.py/
+# settings.py don't need to change.
+_hash_api_key = _sec.hash_api_key
 
 
 

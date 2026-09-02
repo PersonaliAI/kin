@@ -70,6 +70,15 @@ async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 export type ChatResponse = { reply: string; session_id: string; thinking?: string | null };
 
+// Events from the streaming /api/chat/stream endpoint. The reply text
+// itself isn't streamed token-by-token — only which tool is currently
+// running is live; "done" carries the same payload /api/chat returns in
+// one shot.
+export type ChatStreamEvent =
+  | { type: "tool"; name: string; args?: Record<string, unknown> }
+  | { type: "done"; reply: string; session_id: string; thinking?: string | null }
+  | { type: "error"; message: string };
+
 export type ChatSession = {
   session_id: string;
   title: string | null;
@@ -106,6 +115,58 @@ export async function sendChat(args: {
     throw new Error(message || `Chat request failed (${res.status})`);
   }
   return res.json();
+}
+
+// Streaming counterpart of sendChat — same request shape, but yields
+// ChatStreamEvents as the turn progresses (live "which tool is running"
+// status) instead of waiting for the whole response. Same SSE
+// framing/parsing approach as flows.buildStream above.
+export async function* sendChatStream(args: {
+  text: string;
+  audio?: Blob | null;
+  sessionId?: string;
+}): AsyncGenerator<ChatStreamEvent> {
+  const fd = new FormData();
+  fd.append("text", args.text ?? "");
+  if (args.sessionId) fd.append("session_id", args.sessionId);
+  if (args.audio) fd.append("audio", args.audio, "voice.webm");
+
+  const headers = await authHeader();
+  const res = await fetch(`${BACKEND_URL}/api/chat/stream`, {
+    method: "POST",
+    headers,
+    body: fd,
+  });
+  if (!res.ok || !res.body) {
+    const raw = await res.text();
+    let message = raw;
+    try {
+      const parsed = JSON.parse(raw);
+      if (typeof parsed?.detail === "string") message = parsed.detail;
+    } catch {
+      /* not JSON — use raw text as-is */
+    }
+    throw new Error(message || `Chat request failed (${res.status})`);
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const parts = buffer.split("\n\n");
+    buffer = parts.pop() || "";
+    for (const part of parts) {
+      const dataLine = part.split("\n").find((l) => l.startsWith("data:"));
+      if (!dataLine) continue;
+      try {
+        yield JSON.parse(dataLine.slice(5).trim()) as ChatStreamEvent;
+      } catch {
+        /* malformed event */
+      }
+    }
+  }
 }
 
 export const chatSessions = {
@@ -508,6 +569,7 @@ export type SocialPost = {
   publish_date: string;
   content: string;
   image_url?: string | null;
+  media_type?: "image" | "video" | null;
   parent_post_id?: string | null;
   release_id?: string | null;
   release_url?: string | null;
@@ -528,11 +590,23 @@ export type SocialAutoPost = {
 
 export type SocialTag = { id: string; name: string; color: string };
 
+export type SocialSignature = { id: string; content: string; auto_add: boolean; created_at?: string };
+
+export type SocialSet = {
+  id: string;
+  name: string;
+  content: string;
+  image_url?: string | null;
+  media_type?: "image" | "video" | null;
+  created_at?: string;
+};
+
 export type SocialMediaAsset = {
   name: string;
   url: string;
   size: number;
   type?: string;
+  media_type?: "image" | "video";
   created_at?: string;
 };
 
@@ -546,6 +620,32 @@ export type SocialIntegration = {
   displayName: string | null;
   oauth2: boolean;
   real: boolean;
+  comment: boolean;
+  mention: boolean;
+};
+
+export type SocialMention = { id: string; username: string; name: string; avatarUrl: string | null };
+
+export type SocialAgentDisplayEntry = {
+  role: "user" | "assistant" | "action";
+  content: string;
+  tool?: string;
+};
+
+export type SocialAgentThreadSummary = {
+  id: string;
+  title: string | null;
+  preview: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type SocialAgentThread = {
+  id: string;
+  title: string | null;
+  display_log: SocialAgentDisplayEntry[];
+  created_at?: string;
+  updated_at?: string;
 };
 
 // A real connected account — unlike SocialIntegration (one row per
@@ -572,6 +672,7 @@ export const socialApi = {
       publish_date: string;
       state?: "draft" | "queue";
       image_url?: string | null;
+      media_type?: "image" | "video" | null;
       parent_post_id?: string | null;
       settings?: Record<string, unknown> | null;
       repeat_interval?: "daily" | "weekly" | "monthly" | null;
@@ -579,7 +680,7 @@ export const socialApi = {
     }) => api<SocialPost | SocialPost[]>("/api/social/posts", { method: "POST", body: JSON.stringify(body) }),
     update: (
       id: string,
-      body: Partial<Pick<SocialPost, "content" | "publish_date" | "state" | "image_url">> & {
+      body: Partial<Pick<SocialPost, "content" | "publish_date" | "state" | "image_url" | "media_type">> & {
         settings?: Record<string, unknown> | null;
       },
     ) => api<SocialPost>(`/api/social/posts/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
@@ -601,6 +702,33 @@ export const socialApi = {
     create: (body: { name: string; color?: string }) =>
       api<SocialTag>("/api/social/tags", { method: "POST", body: JSON.stringify(body) }),
   },
+  signatures: {
+    list: () => api<SocialSignature[]>("/api/social/signatures"),
+    create: (body: { content: string; auto_add?: boolean }) =>
+      api<SocialSignature>("/api/social/signatures", { method: "POST", body: JSON.stringify(body) }),
+    delete: (id: string) => api<{ success: boolean }>(`/api/social/signatures/${id}`, { method: "DELETE" }),
+  },
+  sets: {
+    list: () => api<SocialSet[]>("/api/social/sets"),
+    create: (body: { name: string; content: string; image_url?: string | null; media_type?: string | null }) =>
+      api<SocialSet>("/api/social/sets", { method: "POST", body: JSON.stringify(body) }),
+    delete: (id: string) => api<{ success: boolean }>(`/api/social/sets/${id}`, { method: "DELETE" }),
+  },
+  shortlinks: {
+    shortenContent: (content: string) =>
+      api<{ content: string; shortened: number }>("/api/social/shortlinks/expand-post", {
+        method: "POST",
+        body: JSON.stringify({ content }),
+      }),
+  },
+  mentions: {
+    search: (accountId: string, q: string) =>
+      api<SocialMention[]>(`/api/social/mentions?account_id=${encodeURIComponent(accountId)}&q=${encodeURIComponent(q)}`),
+  },
+  bestTime: {
+    suggest: (accountId: string, count: number = 3) =>
+      api<{ slots: string[] }>(`/api/social/best-time?account_id=${encodeURIComponent(accountId)}&count=${count}`),
+  },
   analytics: {
     summary: () =>
       api<{ impressions: number; likes: number; reposts: number; clicks: number }>(
@@ -618,7 +746,17 @@ export const socialApi = {
       fd.append("file", file, file.name);
       const headers = await authHeader();
       const res = await fetch(`${BACKEND_URL}/api/social/media`, { method: "POST", headers, body: fd });
-      if (!res.ok) throw new Error(`upload failed (${res.status})`);
+      if (!res.ok) {
+        const raw = await res.text();
+        let message = `upload failed (${res.status})`;
+        try {
+          const parsed = JSON.parse(raw);
+          if (typeof parsed?.detail === "string") message = parsed.detail;
+        } catch {
+          // non-JSON error body — keep the generic message
+        }
+        throw new Error(message);
+      }
       return res.json();
     },
   },
@@ -648,11 +786,22 @@ export const socialApi = {
       }),
     delete: () => api<{ status: string }>("/api/social/webhook", { method: "DELETE" }),
   },
-  generate: (body: { prompt: string; tone?: string; kind?: "outlines" | "post"; url?: string }) =>
-    api<{ outlines?: string[]; content?: string }>("/api/social/generate", {
-      method: "POST",
-      body: JSON.stringify(body),
-    }),
+  agent: {
+    listThreads: () => api<SocialAgentThreadSummary[]>("/api/social/agent/threads"),
+    createThread: (title?: string) =>
+      api<SocialAgentThread>("/api/social/agent/threads", {
+        method: "POST",
+        body: JSON.stringify({ title: title || null }),
+      }),
+    getThread: (id: string) => api<SocialAgentThread>(`/api/social/agent/threads/${id}`),
+    deleteThread: (id: string) =>
+      api<{ success: boolean }>(`/api/social/agent/threads/${id}`, { method: "DELETE" }),
+    sendMessage: (threadId: string, content: string) =>
+      api<SocialAgentThread>(`/api/social/agent/threads/${threadId}/messages`, {
+        method: "POST",
+        body: JSON.stringify({ content }),
+      }),
+  },
 };
 
 // ---- Settings -------------------------------------------------------------
@@ -734,6 +883,7 @@ export type KinApiKey = {
   id: string;
   name: string;
   key_prefix: string;
+  scopes?: string[];
   revoked: boolean;
   request_count: number;
   last_used_at: string | null;
@@ -742,10 +892,12 @@ export type KinApiKey = {
 
 export const kinApiKeysApi = {
   list: () => api<{ api_keys: KinApiKey[] }>("/api/kin/api-keys"),
-  create: (name: string) =>
+  // `write` is the only self-service opt-in scope — chat+read are always
+  // granted (see kin-backend/app/routers/settings.py's _BASE_SCOPES).
+  create: (name: string, scopes?: string[]) =>
     api<KinApiKey & { key: string }>("/api/kin/api-keys", {
       method: "POST",
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, scopes }),
     }),
   revoke: (id: string) =>
     api<{ status: string }>(`/api/kin/api-keys/${id}`, { method: "DELETE" }),
@@ -1036,7 +1188,7 @@ export type VoiceAgentTtsProvider = "elevenlabs" | "cartesia" | "rime" | "lmnt" 
 export type VoiceAgentMode = "pipeline" | "realtime";
 export type VoiceAgentRealtimeProvider = "google" | "openai";
 export type VoiceAgentUseCase = "sales" | "receptionist" | "custom";
-export type VoiceAgentTelephonyProvider = "twilio_managed" | "telnyx_managed" | "twilio_byok" | "byo_sip";
+export type VoiceAgentTelephonyProvider = "twilio_byok" | "telnyx_byok" | "byo_sip";
 export type VoiceAgentStatus = "draft" | "provisioning" | "active" | "paused" | "error";
 
 export type VoiceAgent = {
@@ -1112,7 +1264,7 @@ export const voiceAgentsApi = {
     api<{ phone_number: string; locality?: string; region?: string }[]>(
       `/api/voice-agents/available-numbers?provider=${provider}&country=${country}${areaCode ? `&area_code=${areaCode}` : ""}`,
     ),
-  provisionNumber: (id: string, telephony_provider: "twilio_managed" | "telnyx_managed" | "twilio_byok", phone_number: string) =>
+  provisionNumber: (id: string, telephony_provider: "twilio_byok" | "telnyx_byok", phone_number: string) =>
     api<VoiceAgent>(`/api/voice-agents/${id}/provision-number`, {
       method: "POST",
       body: JSON.stringify({ telephony_provider, phone_number }),
@@ -1136,6 +1288,13 @@ export const voiceAgentsApi = {
     api<{ status: string }>("/api/voice-agents/telephony/twilio-byok", {
       method: "POST",
       body: JSON.stringify({ account_sid, auth_token, trunk_sid }),
+    }),
+  // Same pattern as saveTwilioByok — its own endpoint (not the generic
+  // flowCredentials.save) since saving also auto-provisions LiveKit trunks.
+  saveTelnyxByok: (api_key: string, sip_connection_id: string, sip_username: string, sip_password: string) =>
+    api<{ status: string }>("/api/voice-agents/telephony/telnyx-byok", {
+      method: "POST",
+      body: JSON.stringify({ api_key, sip_connection_id, sip_username, sip_password }),
     }),
 };
 

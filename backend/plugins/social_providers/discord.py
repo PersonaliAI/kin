@@ -40,10 +40,15 @@ class DiscordProvider(SocialProvider):
         media_urls: Optional[list[str]] = None,
         settings: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
+        settings = settings or {}
         webhook_url = credentials["webhook_url"]
         body: dict[str, Any] = {"content": content[:2000]}
         if media_urls:
             body["embeds"] = [{"image": {"url": media_urls[0]}}]
+        if settings.get("username"):
+            body["username"] = settings["username"][:80]
+        if settings.get("suppress_mentions"):
+            body["allowed_mentions"] = {"parse": []}
         res = await request_with_retry("POST", f"{webhook_url}?wait=true", json=body)
         if res.status_code >= 400:
             raise SocialPostError(f"discord post failed ({res.status_code}): {res.text}")

@@ -39,17 +39,26 @@ class TelegramProvider(SocialProvider):
         media_urls: Optional[list[str]] = None,
         settings: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
+        settings = settings or {}
         bot_token = credentials["bot_token"]
         chat_id = credentials["chat_id"]
+        disable_notification = bool(settings.get("disable_notification", False))
         if media_urls:
             res = await request_with_retry(
                 "POST", f"https://api.telegram.org/bot{bot_token}/sendPhoto",
-                json={"chat_id": chat_id, "photo": media_urls[0], "caption": content[:1024]},
+                json={
+                    "chat_id": chat_id, "photo": media_urls[0], "caption": content[:1024],
+                    "disable_notification": disable_notification,
+                },
             )
         else:
             res = await request_with_retry(
                 "POST", f"https://api.telegram.org/bot{bot_token}/sendMessage",
-                json={"chat_id": chat_id, "text": content[:4096]},
+                json={
+                    "chat_id": chat_id, "text": content[:4096],
+                    "disable_notification": disable_notification,
+                    "disable_web_page_preview": bool(settings.get("disable_web_page_preview", False)),
+                },
             )
         data = res.json()
         if res.status_code >= 400 or not data.get("ok"):

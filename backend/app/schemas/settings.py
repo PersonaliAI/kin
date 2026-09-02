@@ -7,6 +7,9 @@ from pydantic import BaseModel
 
 class KinApiKeyCreate(BaseModel):
     name: str = "API key"
+    # "write" is the only meaningful opt-in today (chat+read are always
+    # granted); "admin" can't be self-granted here — see create_kin_api_key.
+    scopes: Optional[list[str]] = None
 
 
 class SignatureLink(BaseModel):

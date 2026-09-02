@@ -56,18 +56,23 @@ class PinterestProvider(OAuth2Mixin, SocialProvider):
     ) -> dict[str, Any]:
         if not media_urls:
             raise SocialPostError("pinterest: pins require an image")
-        board_id = credentials.get("board_id")
+        settings = settings or {}
+        board_id = settings.get("board_id") or credentials.get("board_id")
         if not board_id:
             raise SocialPostError("pinterest: no board configured for this account")
         headers = {
             "Authorization": f"Bearer {credentials['access_token']}",
             "Content-Type": "application/json",
         }
-        body = {
+        body: dict[str, Any] = {
             "board_id": board_id,
             "media_source": {"source_type": "image_url", "url": media_urls[0]},
             "description": content[:800],
         }
+        if settings.get("link"):
+            body["link"] = settings["link"]
+        if settings.get("alt_text"):
+            body["media_source"]["alt_text"] = settings["alt_text"][:500]
         res = await request_with_retry("POST", "https://api.pinterest.com/v5/pins", headers=headers, json=body)
         if res.status_code >= 400:
             raise SocialPostError(f"pinterest post failed ({res.status_code}): {res.text}")
