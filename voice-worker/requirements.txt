@@ -22,4 +22,4 @@ livekit-plugins-cartesia==1.6.10
 livekit-plugins-rime==1.6.10
 livekit-plugins-lmnt==1.6.10
 httpx==0.28.1
-python-dotenv==1.2.2
+python-dotenv==1.2.3
