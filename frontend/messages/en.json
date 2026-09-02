@@ -709,6 +709,7 @@
         "nameLabel": "Name",
         "namePlaceholder": "e.g. Zapier integration",
         "createKey": "Create key",
+        "grantWrite": "Allow this key to create, edit, and delete content (e.g. schedule social posts) — off by default",
         "requests": "{count, plural, one {# request} other {# requests}}",
         "lastUsed": "last used {date}",
         "neverUsed": "never used",
@@ -1005,9 +1006,8 @@
         "realtime": "Realtime"
       },
       "telephonyProvider": {
-        "twilio_managed": "Twilio (free, shared)",
-        "telnyx_managed": "Telnyx (free, shared)",
         "twilio_byok": "Twilio (your own account)",
+        "telnyx_byok": "Telnyx (your own account)",
         "byo_sip": "Bring your own SIP trunk"
       },
       "testCallDialog": {
@@ -1093,24 +1093,39 @@
         "description": "Search and provision a number. This may incur charges from the telephony provider.",
         "providerLabel": "Provider",
         "search": "Search available numbers",
-        "byokHint": "Uses the Twilio account connected from the New Voice Agent dialog. Add your Twilio credentials there first if you haven't."
+        "byokHint": "Uses the account connected for the selected provider from the New Voice Agent dialog. Add your credentials there first if you haven't."
       },
       "settingsDialog": {
         "dialogTitle": "Voice Agent settings",
-        "title": "Twilio — bring your own account",
-        "description": "Optional. Buy and manage phone numbers for Voice Agents under your own Twilio billing, instead of Kin's free shared Twilio/Telnyx numbers. Bring-your-own-account isn't available for Telnyx yet.",
         "connected": "Connected",
-        "savedNote": "Twilio credentials saved.",
         "remove": "Remove",
         "cancel": "Cancel",
         "confirmRemove": "Yes, remove",
-        "accountSidPlaceholder": "Account SID",
-        "authTokenPlaceholder": "Auth Token",
-        "trunkSidPlaceholder": "SIP Trunk SID",
-        "setupHint": "Create a SIP trunk in your Twilio console and paste its details above — we handle the LiveKit side automatically, no other setup needed.",
-        "save": "Save Twilio credentials",
-        "saved": "Saved",
-        "saveError": "Could not save your Twilio credentials"
+        "twilio": {
+          "title": "Twilio — bring your own account",
+          "description": "Buy and manage phone numbers for Voice Agents under your own Twilio billing.",
+          "savedNote": "Twilio credentials saved.",
+          "accountSidPlaceholder": "Account SID",
+          "authTokenPlaceholder": "Auth Token",
+          "trunkSidPlaceholder": "SIP Trunk SID",
+          "setupHint": "Create a SIP trunk in your Twilio console and paste its details above — we handle the LiveKit side automatically, no other setup needed.",
+          "save": "Save Twilio credentials",
+          "saved": "Saved",
+          "saveError": "Could not save your Twilio credentials"
+        },
+        "telnyx": {
+          "title": "Telnyx — bring your own account",
+          "description": "Buy and manage phone numbers for Voice Agents under your own Telnyx billing.",
+          "savedNote": "Telnyx credentials saved.",
+          "apiKeyPlaceholder": "API Key",
+          "sipConnectionIdPlaceholder": "SIP Connection ID",
+          "sipUsernamePlaceholder": "SIP Connection username",
+          "sipPasswordPlaceholder": "SIP Connection password",
+          "setupHint": "Create a Credentials-type SIP Connection in your Telnyx portal pointed at LiveKit and paste its details above — we handle the LiveKit side automatically, no other setup needed.",
+          "save": "Save Telnyx credentials",
+          "saved": "Saved",
+          "saveError": "Could not save your Telnyx credentials"
+        }
       }
     },
     "settings": {

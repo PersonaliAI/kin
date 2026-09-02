@@ -68,6 +68,7 @@ function ApiKeysSection() {
   const t = useTranslations("dashboard.developer.apiKeys");
   const [keys, setKeys] = useState<KinApiKey[] | null>(null);
   const [name, setName] = useState("");
+  const [grantWrite, setGrantWrite] = useState(false);
   const [creating, setCreating] = useState(false);
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -90,9 +91,13 @@ function ApiKeysSection() {
     setCreating(true);
     setError(null);
     try {
-      const created = await kinApiKeysApi.create(name.trim() || "API key");
+      const created = await kinApiKeysApi.create(
+        name.trim() || "API key",
+        grantWrite ? ["write"] : [],
+      );
       setRevealedKey(created.key);
       setName("");
+      setGrantWrite(false);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : t("createError"));
@@ -154,7 +159,7 @@ function ApiKeysSection() {
         </p>
       )}
 
-      <div className="flex items-end gap-2 mb-4">
+      <div className="flex items-end gap-2 mb-2">
         <div className="flex-1 -mb-3">
           <Field label={t("nameLabel")}>
             <input
@@ -176,6 +181,15 @@ function ApiKeysSection() {
           {t("createKey")}
         </Button>
       </div>
+      <label className="flex items-center gap-2 cursor-pointer mb-4">
+        <input
+          type="checkbox"
+          checked={grantWrite}
+          onChange={(e) => setGrantWrite(e.target.checked)}
+          className="rounded border-border"
+        />
+        <span className="text-xs text-muted-foreground">{t("grantWrite")}</span>
+      </label>
 
       <ul className="divide-y divide-border">
         {(keys ?? []).map((k) => (
@@ -184,6 +198,7 @@ function ApiKeysSection() {
               <p className="text-sm truncate">{k.name}</p>
               <p className="text-[11px] text-muted-foreground">
                 <code>{k.key_prefix}…</code>
+                {k.scopes && k.scopes.length > 0 && <> · {k.scopes.join(", ")}</>}
                 {" · "}
                 {t("requests", { count: k.request_count })}
                 {" · "}

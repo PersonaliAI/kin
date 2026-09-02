@@ -709,6 +709,7 @@
         "nameLabel": "Nom",
         "namePlaceholder": "ex. Intégration Zapier",
         "createKey": "Créer une clé",
+        "grantWrite": "Autoriser cette clé à créer, modifier et supprimer du contenu (ex. planifier des publications sociales) — désactivé par défaut",
         "requests": "{count, plural, one {# requête} other {# requêtes}}",
         "lastUsed": "dernière utilisation le {date}",
         "neverUsed": "jamais utilisé",
@@ -1005,9 +1006,8 @@
         "realtime": "Temps réel"
       },
       "telephonyProvider": {
-        "twilio_managed": "Twilio (gratuit, partagé)",
-        "telnyx_managed": "Telnyx (gratuit, partagé)",
         "twilio_byok": "Twilio (votre propre compte)",
+        "telnyx_byok": "Telnyx (votre propre compte)",
         "byo_sip": "Votre propre trunk SIP"
       },
       "testCallDialog": {
@@ -1093,24 +1093,39 @@
         "description": "Recherchez et provisionnez un numéro. Cela peut entraîner des frais chez le fournisseur de téléphonie.",
         "providerLabel": "Fournisseur",
         "search": "Rechercher des numéros disponibles",
-        "byokHint": "Utilise le compte Twilio connecté depuis la boîte de dialogue Nouvel Agent Vocal. Ajoutez d'abord vos identifiants Twilio si ce n'est pas déjà fait."
+        "byokHint": "Utilise le compte connecté pour le fournisseur sélectionné depuis la boîte de dialogue Nouvel Agent Vocal. Ajoutez d'abord vos identifiants là-bas si ce n'est pas déjà fait."
       },
       "settingsDialog": {
         "dialogTitle": "Paramètres des Agents Vocaux",
-        "title": "Twilio — utilisez votre propre compte",
-        "description": "Facultatif. Achetez et gérez des numéros de téléphone pour les Agents Vocaux sous votre propre facturation Twilio, au lieu des numéros gratuits partagés de Kin (Twilio/Telnyx). Cette option n'est pas encore disponible pour Telnyx.",
         "connected": "Connecté",
-        "savedNote": "Identifiants Twilio enregistrés.",
         "remove": "Retirer",
         "cancel": "Annuler",
         "confirmRemove": "Oui, retirer",
-        "accountSidPlaceholder": "Account SID",
-        "authTokenPlaceholder": "Auth Token",
-        "trunkSidPlaceholder": "SIP Trunk SID",
-        "setupHint": "Créez un trunk SIP dans votre console Twilio et collez ses informations ci-dessus — nous configurons LiveKit automatiquement, rien d'autre à faire.",
-        "save": "Enregistrer les identifiants Twilio",
-        "saved": "Enregistré",
-        "saveError": "Impossible d'enregistrer vos identifiants Twilio"
+        "twilio": {
+          "title": "Twilio — utilisez votre propre compte",
+          "description": "Achetez et gérez des numéros de téléphone pour les Agents Vocaux sous votre propre facturation Twilio.",
+          "savedNote": "Identifiants Twilio enregistrés.",
+          "accountSidPlaceholder": "Account SID",
+          "authTokenPlaceholder": "Auth Token",
+          "trunkSidPlaceholder": "SIP Trunk SID",
+          "setupHint": "Créez un trunk SIP dans votre console Twilio et collez ses informations ci-dessus — nous configurons LiveKit automatiquement, rien d'autre à faire.",
+          "save": "Enregistrer les identifiants Twilio",
+          "saved": "Enregistré",
+          "saveError": "Impossible d'enregistrer vos identifiants Twilio"
+        },
+        "telnyx": {
+          "title": "Telnyx — utilisez votre propre compte",
+          "description": "Achetez et gérez des numéros de téléphone pour les Agents Vocaux sous votre propre facturation Telnyx.",
+          "savedNote": "Identifiants Telnyx enregistrés.",
+          "apiKeyPlaceholder": "Clé API",
+          "sipConnectionIdPlaceholder": "ID de connexion SIP",
+          "sipUsernamePlaceholder": "Nom d'utilisateur de la connexion SIP",
+          "sipPasswordPlaceholder": "Mot de passe de la connexion SIP",
+          "setupHint": "Créez une connexion SIP de type Identifiants dans votre portail Telnyx pointant vers LiveKit et collez ses informations ci-dessus — nous configurons LiveKit automatiquement, rien d'autre à faire.",
+          "save": "Enregistrer les identifiants Telnyx",
+          "saved": "Enregistré",
+          "saveError": "Impossible d'enregistrer vos identifiants Telnyx"
+        }
       }
     },
     "settings": {
