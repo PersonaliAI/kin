@@ -14,7 +14,7 @@ livekit-plugins-anthropic==1.6.10
 anthropic==0.125.0
 livekit-plugins-google==1.6.10
 livekit-plugins-xai==1.6.10
-livekit-plugins-deepgram==1.6.10
+livekit-plugins-deepgram==1.7.1
 livekit-plugins-azure==1.6.10
 livekit-plugins-assemblyai==1.6.10
 livekit-plugins-elevenlabs==1.6.10
