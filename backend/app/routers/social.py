@@ -27,6 +27,7 @@ from app.core.llm import complete as llm_complete, parsed_tool_calls
 from app.schemas.social import (
     SocialAgentMessageCreate,
     SocialAgentThreadCreate,
+    LinkedInCommentPublish,
     SocialAutoPostCreate,
     SocialPostCreate,
     SocialPostUpdate,
@@ -422,6 +423,23 @@ SOCIAL_AGENT_TOOLS: list[dict[str, Any]] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "publish_linkedin_comment",
+            "description": "Publish an approved comment using a connected LinkedIn account. This is a real external action and requires explicit next-turn user approval.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "account_id": {"type": "string"},
+                    "post_id": {"type": "string", "description": "Target LinkedIn post URN"},
+                    "content": {"type": "string"},
+                    "approved": {"type": "boolean"},
+                },
+                "required": ["account_id", "post_id", "content", "approved"],
+            },
+        },
+    },
 ]
 
 _SOCIAL_AGENT_MAX_ROUNDS = 5
@@ -435,8 +453,45 @@ _SOCIAL_AGENT_SYSTEM_PROMPT = (
     "- Before calling schedule_post, restate the content, target account(s), and publish time back to "
     "the user unless they were fully explicit about all three in their message.\n"
     "- publish_date must be ISO-8601 in UTC.\n"
+    "- LinkedIn specialist mode: support content plans, hook analysis, original posts, repurposing, "
+    "humanizing, comments, replies, repost commentary, profile feedback, engager segmentation, and thread follow-up. "
+    "Use concrete details and avoid generic AI phrasing.\n"
+    "- Free-first data policy: never scrape LinkedIn or claim to have fetched a URL. Ask the user to paste or "
+    "export material needed to analyze other posts, comments, engagers, or reply history.\n"
+    "- For comments and replies, draft alternatives first, state the exact target and draft, then wait for an "
+    "unambiguous next-turn approval before calling publish_linkedin_comment with approved=true.\n"
     "- Keep replies concise and conversational."
 )
+
+
+async def _publish_linkedin_comment(
+    *, user_id: str, account_id: str, post_id: str, content: str, approved: bool
+) -> dict[str, Any]:
+    if not approved:
+        raise HTTPException(status_code=400, detail="Explicit approval is required before publishing a LinkedIn comment")
+    if not content.strip() or len(content) > 3000:
+        raise HTTPException(status_code=400, detail="LinkedIn comment content must be between 1 and 3000 characters")
+    account = (
+        supabase.table("social_accounts").select("id, slug")
+        .eq("id", account_id).eq("user_id", user_id).maybe_single().execute()
+    )
+    if not account or not account.data or account.data.get("slug") != "linkedin":
+        raise HTTPException(status_code=404, detail="Connected LinkedIn account not found")
+    credentials = _read_social_account_credentials(account_id, user_id)
+    if not credentials:
+        raise HTTPException(status_code=400, detail="LinkedIn credentials are unavailable; reconnect the account")
+    result = await sp.get_provider("linkedin").comment(post_id, content.strip(), credentials)
+    return {"status": "published", "result": result}
+
+
+@router.post("/api/social/linkedin/comments")
+async def publish_linkedin_comment(
+    body: LinkedInCommentPublish, user: dict[str, Any] = Depends(require_user)
+):
+    return await _publish_linkedin_comment(
+        user_id=user["id"], account_id=body.account_id, post_id=body.post_id,
+        content=body.content, approved=body.approved,
+    )
 
 
 async def _execute_social_agent_tool(user: dict[str, Any], name: str, args: dict[str, Any]) -> dict[str, Any]:
@@ -513,6 +568,16 @@ async def _execute_social_agent_tool(user: dict[str, Any], name: str, args: dict
         res = supabase.table("social_posts").insert(rows).execute()
         return {"created": res.data or []}
 
+    if name == "publish_linkedin_comment":
+        try:
+            return await _publish_linkedin_comment(
+                user_id=user_id, account_id=str(args.get("account_id") or ""),
+                post_id=str(args.get("post_id") or ""), content=str(args.get("content") or ""),
+                approved=args.get("approved") is True,
+            )
+        except HTTPException as exc:
+            return {"error": exc.detail}
+
     return {"error": f"unknown tool: {name}"}
 
 
@@ -533,6 +598,8 @@ def _describe_tool_action(name: str, args: dict[str, Any], result: dict[str, Any
         if result.get("error"):
             return f"Couldn't suggest times: {result['error']}"
         return f"Suggested {len(result.get('slots') or [])} open posting time(s)."
+    if name == "publish_linkedin_comment":
+        return "Published the LinkedIn comment." if not result.get("error") else f"Couldn't publish the LinkedIn comment: {result['error']}"
     return f"Ran {name}."
 
 

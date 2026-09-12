@@ -77,3 +77,11 @@ class SocialAgentThreadCreate(BaseModel):
 
 class SocialAgentMessageCreate(BaseModel):
     content: str
+
+
+class LinkedInCommentPublish(BaseModel):
+    """An explicitly approved comment on an external LinkedIn post."""
+    account_id: str
+    post_id: str
+    content: str
+    approved: bool = False
