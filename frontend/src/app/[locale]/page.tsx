@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
+import Script from "next/script";
 import { Link } from "@/i18n/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { KinMark } from "@/components/kin-mark";
@@ -684,6 +685,11 @@ export default function Home() {
         <CTA />
       </main>
       <Footer />
+      <Script
+        src="https://chatty.personaliai.com/widget.js"
+        data-id="ad32f373-7694-43f4-9465-f8d65ce291e3"
+        strategy="lazyOnload"
+      />
     </div>
   );
 }
