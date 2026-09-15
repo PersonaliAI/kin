@@ -45,7 +45,7 @@ anthropic==0.76.0
 # litellm — unified LLM-calling layer (app/core/llm.py). Stage 0 of a staged
 # migration off direct google-genai calls; existing google-genai/openai/anthropic
 # deps stay as-is for now, this is additive, not a cutover.
-litellm==1.74.9
+litellm==1.98.0
 # LiveKit server SDK — used by livekit_control.py to dispatch the shared
 # kin-voice-worker agent and bridge outbound SIP calls. Not the full
 # livekit-agents framework (that only runs inside kin-voice-worker itself).
